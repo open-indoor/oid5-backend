@@ -6,7 +6,10 @@
         {
             "type": "Feature",
             "properties": {
-                "building": "yes"
+                "building": "yes",
+                "name": "xxx",
+                "id": "zzz",
+                "town": "yyy"
             },
             "geometry": {
                 "type": "LineString",

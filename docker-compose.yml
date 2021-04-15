@@ -45,6 +45,9 @@ services:
     # - pbf-storage:/data
     - ./places-finder/data:/data
     - ./places-finder.py:/places/places-finder.py
+    - ./places-finder/regions.json:/places-finder/regions.json
+    - ./test:/test
+
     # - ./places-flask.py:/places/places-flask.py
     # - ./ogr2ogr.py:/places/ogr2ogr.py
     # - ./init_db.sh:/places/init_db.sh
