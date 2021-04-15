@@ -1,9 +1,9 @@
 {
     "regions": [
         {
-            "name": "europe",
-            "poly": "https://download.geofabrik.de/europe.poly",
-            "pbf": "https://download.geofabrik.de/europe-latest.osm.pbf"
+            "name": "europe_france_bretagne",
+            "poly": "http://download.geofabrik.de/europe/france/bretagne.poly",
+            "pbf": "http://download.geofabrik.de/europe/france/bretagne-latest.osm.pbf"
         }
     ]
 }
