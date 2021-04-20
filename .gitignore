@@ -1,0 +1,10 @@
+# Huge geo data
+*.osm.pbf 
+*.geojson
+*.tmp
+*.dump
+
+# data dir (should be recreated during the build)
+places-finder/data/
+places-finder/testdata/
+

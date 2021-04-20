@@ -1,0 +1,65 @@
+[webserver]
+port = ":8080"
+
+# register data providers
+[[providers]]
+name = "openindoor"           # provider name is referenced from map layers
+type = "postgis"        # the type of data provider. currently only supports postgis
+host = "openindoor-db"      # postgis database host
+port = 5432             # postgis database port
+database = "openindoor-db"       # postgis database name
+user = "openindoor-db-admin"         # postgis database user
+password = "admin123"           # postgis database password
+srid = 4326             # The default srid for this provider. If not provided it will be WebMercator (3857)
+
+  # [[providers.layers]]
+  # name = "buildings"
+  # geometry_fieldname = "wkb_geometry"
+  # id_fieldname = "ogc_fid"
+  # sql = "SELECT ST_AsBinary(wkb_geometry) AS wkb_geometry, name, ogc_fid FROM buildings WHERE wkb_geometry && !BBOX!"
+
+  [[providers.layers]]
+  name = "places"
+  geometry_fieldname = "wkb_geometry"
+  id_fieldname = "ogc_fid"
+  sql = """
+      SELECT
+          ST_AsBinary(wkb_geometry) AS wkb_geometry, name, id, town, ogc_fid
+      FROM
+          places
+      WHERE
+          wkb_geometry && !BBOX!
+  """
+
+  [[providers.layers]]
+  name = "pins"
+  geometry_fieldname = "wkb_geometry"
+  id_fieldname = "ogc_fid"
+  sql = """
+      SELECT
+          ST_AsBinary(wkb_geometry) AS wkb_geometry, id, town, ogc_fid
+      FROM
+          pins
+      WHERE
+          wkb_geometry && !BBOX!
+  """
+
+[[maps]]
+name = "openindoor"
+center = [2.54, 49.015, 17.0] # set the center of the map so the user is auto navigated to Bonn
+
+  # [[maps.layers]]
+  # provider_layer = "openindoor.buildings"
+  # min_zoom = 15
+  # max_zoom = 20
+
+  [[maps.layers]]
+  provider_layer = "openindoor.places"
+  min_zoom = 15
+  max_zoom = 20
+
+  [[maps.layers]]
+  provider_layer = "openindoor.pins"
+  min_zoom = 0
+  max_zoom = 20
+

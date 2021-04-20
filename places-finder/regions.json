@@ -1,0 +1,10 @@
+{
+    "regions": [
+        {
+            "name": "europe",
+            "poly": "https://download.geofabrik.de/europe/france.poly",
+            "pbf": "https://download.geofabrik.de/europe/france-latest.osm.pbf",
+            "html_page": "https://download.geofabrik.de/europe/france.html"
+        }
+    ]
+}
