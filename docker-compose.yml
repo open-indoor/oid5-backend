@@ -9,14 +9,14 @@ services:
     environment:
       POSTGRES_DB: openindoor-db
       POSTGRES_USER: openindoor-db-admin
-    ports:
-    - 5432:5432
+    # ports:
+    # - 5432:5432
 
   openindoor-adminer:
     image: adminer
     restart: always
-    ports:
-      - 8091:8080
+    # ports:
+    #   - 8091:8080
 
   
 
@@ -51,7 +51,7 @@ services:
     volumes:
     - ./tegola:/opt/tegola_config
     ports:
-    - 8092:8092
+    - 80:8092
     depends_on:
     - "openindoor-db"
     - "places-finder"
