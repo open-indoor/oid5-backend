@@ -18,20 +18,7 @@ services:
     ports:
       - 8091:8080
 
-  openindoor-tegola:
-    image: gospatial/tegola:v0.12.1
-    environment:
-      POSTGRES_DB: openindoor-db
-      POSTGRES_USER: openindoor-db-admin
-      POSTGRES_PASSWORD: admin123    
-    command: serve --config /opt/tegola_config/config.toml
-    volumes:
-    - ./tegola:/opt/tegola_config
-    ports:
-    - 8092:8092
-    depends_on:
-    - "openindoor-db"
-    - "places-finder"
+  
 
   places-finder:
     # dns:
@@ -52,6 +39,23 @@ services:
     command: 
       - /places-finder/getData.py
       - /places-finder/places-finder.py
+
+
+  openindoor-tegola:
+    image: gospatial/tegola:v0.12.1
+    environment:
+      POSTGRES_DB: openindoor-db
+      POSTGRES_USER: openindoor-db-admin
+      POSTGRES_PASSWORD: admin123    
+    command: serve --config /opt/tegola_config/config.toml
+    volumes:
+    - ./tegola:/opt/tegola_config
+    ports:
+    - 8092:8092
+    depends_on:
+    - "openindoor-db"
+    - "places-finder"
+
 
 volumes:
   pbf-storage:
