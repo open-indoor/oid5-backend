@@ -11,6 +11,11 @@ services:
       POSTGRES_USER: openindoor-db-admin
     # ports:
     # - 5432:5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openindoor-db-admin -p 5432 -d openindoor-db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   openindoor-adminer:
     image: adminer
@@ -18,7 +23,22 @@ services:
     # ports:
     #   - 8091:8080
 
-  
+  openindoor-tegola:
+    image: gospatial/tegola:v0.12.1
+    environment:
+      POSTGRES_DB: openindoor-db
+      POSTGRES_USER: openindoor-db-admin
+      POSTGRES_PASSWORD: admin123    
+    command: serve --config /opt/tegola_config/config.toml
+    volumes:
+    - ./tegola:/opt/tegola_config
+    ports:
+    - 80:8092
+    depends_on:
+      openindoor-db:
+        condition: service_healthy
+      places-finder:
+        condition: service_started
 
   places-finder:
     # dns:
@@ -34,28 +54,16 @@ services:
     - ./places-finder/data:/data
     # - ./places-finder.py:/places/places-finder.py
     - ./places-finder/testdata:/testdata
-    ports:
-       - 8001:80
-    command: 
-      - /places-finder/getData.py
-      - /places-finder/places-finder.py
-
-
-  openindoor-tegola:
-    image: gospatial/tegola:v0.12.1
-    environment:
-      POSTGRES_DB: openindoor-db
-      POSTGRES_USER: openindoor-db-admin
-      POSTGRES_PASSWORD: admin123    
-    command: serve --config /opt/tegola_config/config.toml
-    volumes:
-    - ./tegola:/opt/tegola_config
-    ports:
-    - 80:8092
+    # ports:
+    #    - 8001:80
     depends_on:
-    - "openindoor-db"
-    - "places-finder"
-
+     openindoor-db:
+       condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
 
 volumes:
   pbf-storage:

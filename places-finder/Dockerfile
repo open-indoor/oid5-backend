@@ -76,7 +76,7 @@ RUN pip3 install bs4
 COPY getData.py /places-finder/getData.py
 COPY ./places-finder.py /places-finder/places-finder.py
 COPY ./regions.json /places-finder/regions.json
-RUN chmod +x /places-finder/places-finder.py
+# RUN chmod +x /places-finder/places-finder.py
 RUN chmod +x /places-finder/getData.py
 
 
@@ -86,5 +86,6 @@ RUN chmod +x /places-finder/getData.py
 # COPY ./data /places-finder/data
 # COPY ./testdata /places-finder/testdata
 
-CMD bash -c "/places-finder/getData.py /places-finder/places-finder.py"
+CMD bash -c "/places-finder/getData.py"  
 
+#add previous line -> /places-finder/places-finder.py"
