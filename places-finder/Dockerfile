@@ -1,7 +1,8 @@
 ################ PLACES #####################
 FROM debian:testing
-
 WORKDIR /places-finder
+
+EXPOSE 80
 
 RUN apt-get -qq update \
   && DEBIAN_FRONTEND=noninteractive \
@@ -16,6 +17,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && apt-get -y install \
       --no-install-recommends \
       bash \
+      # apt-utils \ 
     #   caddy \
       cron \
       curl \
@@ -70,14 +72,18 @@ RUN mkdir -p /places-finder
 COPY ./requirements.txt /places-finder/
 RUN pip3 install -r /places-finder/requirements.txt
 RUN pip3 install bs4
+RUN pip3 install Flask
 
 # COPY ./Caddyfile /etc/caddy/Caddyfile
 
 COPY getData.py /places-finder/getData.py
+COPY main.py /places-finder/main.py
 COPY ./places-finder.py /places-finder/places-finder.py
 COPY ./regions.json /places-finder/regions.json
 # RUN chmod +x /places-finder/places-finder.py
 RUN chmod +x /places-finder/getData.py
+RUN chmod +x /places-finder/main.py
+
 
 
 # RUN mkdir -p /data
@@ -86,6 +92,9 @@ RUN chmod +x /places-finder/getData.py
 # COPY ./data /places-finder/data
 # COPY ./testdata /places-finder/testdata
 
-CMD bash -c "/places-finder/getData.py"  
+# CMD bash -c "/places-finder/getData.py"  
+CMD bash -c "/places-finder/main.py"  
+
+
 
 #add previous line -> /places-finder/places-finder.py"
