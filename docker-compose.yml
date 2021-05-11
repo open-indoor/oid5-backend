@@ -20,8 +20,8 @@ services:
   openindoor-adminer:
     image: adminer
     restart: always
-    # ports:
-    #   - 8091:8080
+    ports:
+      - 8091:8080
 
   openindoor-tegola:
     image: gospatial/tegola:v0.12.1
@@ -37,34 +37,7 @@ services:
     depends_on:
       openindoor-db:
         condition: service_healthy
-      places-finder:
-        condition: service_started
-
-  places-finder:
-    # dns:
-    # - 213.186.33.99
-    build:
-      context: places-finder
-    image: openindoor/places-finder
-    environment:
-      POSTGRES_DB: openindoor-db
-      POSTGRES_USER: openindoor-db-admin
-      POSTGRES_PASSWORD: admin123
-    volumes:
-    - ./places-finder/data:/data
-    # - ./places-finder.py:/places/places-finder.py
-    - ./places-finder/testdata:/testdata
-    # ports:
-    #    - 8001:80
-    depends_on:
-     openindoor-db:
-       condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80"]
-      interval: 20s
-      timeout: 10s
-      retries: 10
-
+        
 volumes:
   pbf-storage:
   db-storage:

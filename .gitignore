@@ -5,6 +5,4 @@
 *.dump
 
 # data dir (should be recreated during the build)
-places-finder/data/
-places-finder/testdata/
-
+places-finder/

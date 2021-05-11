@@ -59,6 +59,7 @@ for i in range(len(linksPart)):
         process = subprocess.run(["ogr2ogr","-f","GeoJSON", downloadDest + linksPart[i][len(endDir):-7] + "geojson",downloadDest + linksPart[i][len(endDir):], "multipolygons" ])
         # osmium extract bbox 47.394144,0.68484,47.404144,0.69484 -o output ville jean.osm.pbf http://download.geofabrik.de/europe/france/bretagne-latest.osm.pbf
         processDB = subprocess.run(["ogr2ogr","-f","PostgreSQL", "PG:dbname=openindoor-db host=openindoor-db port=5432 user=openindoor-db-admin password=admin123",downloadDest + linksPart[i][len(endDir):-7] + "geojson", "-nln", "regions" , "-overwrite", "-append", "-update", "-nlt", "MULTIPOLYGON"])
+        # Prod -> Gerer la connexion string différement (env)
 print(convertedFiles)
 os.listdir(downloadDest)
 
