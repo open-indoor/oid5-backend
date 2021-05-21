@@ -1,0 +1,37 @@
+[webserver]
+port = ":12092"
+hostname = "vegeta.openindoor.io"
+uri_prefix = "/tegola-val"
+
+# register data providers
+[[providers]]
+name = "openindoor"           # provider name is referenced from map layers
+type = "postgis"        # the type of data provider. currently only supports postgis
+host = "openindoor-db"      # postgis database host
+port = 5432             # postgis database port
+database = "openindoor-db"       # postgis database name
+user = "openindoor-db-admin"         # postgis database user
+password = "admin123"           # postgis database password
+srid = 4326             # The default srid for this provider. If not provided it will be WebMercator (3857)
+
+  [[providers.layers]]
+  name = "building-footprint"
+  geometry_fieldname = "wkb_geometry"
+  id_fieldname = "ogc_fid"
+  sql = """
+      SELECT
+          ST_AsBinary(wkb_geometry) AS wkb_geometry, ogc_fid
+      FROM
+          "building_footprint"
+      WHERE
+          wkb_geometry && !BBOX!
+  """
+
+[[maps]]
+name = "openindoor"
+center = [48.114395, -1.677965, 18.0]
+
+  [[maps.layers]]
+  provider_layer = "openindoor.building-footprint"
+  min_zoom = 10
+  max_zoom = 20
