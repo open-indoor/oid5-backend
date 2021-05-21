@@ -1,5 +1,7 @@
 [webserver]
-port = ":8080"
+port = ":11092"
+hostname = "vegeta.openindoor.io"
+uri_prefix = "/tegola-debian"
 
 # register data providers
 [[providers]]
@@ -12,11 +14,58 @@ user = "openindoor-db-admin"         # postgis database user
 password = "admin123"           # postgis database password
 srid = 4326             # The default srid for this provider. If not provided it will be WebMercator (3857)
 
-  # [[providers.layers]]
-  # name = "buildings"
-  # geometry_fieldname = "wkb_geometry"
-  # id_fieldname = "ogc_fid"
-  # sql = "SELECT ST_AsBinary(wkb_geometry) AS wkb_geometry, name, ogc_fid FROM buildings WHERE wkb_geometry && !BBOX!"
+  [[providers.layers]]
+  name = "building-footprint"
+  geometry_fieldname = "wkb_geometry"
+  id_fieldname = "ogc_fid"
+  sql = """
+      SELECT
+          ST_AsBinary(wkb_geometry) AS wkb_geometry, ogc_fid
+      FROM
+          "building_footprint"
+      WHERE
+          wkb_geometry && !BBOX!
+  """
+
+  [[providers.layers]]
+  name = "building"
+  geometry_fieldname = "wkb_geometry"
+  id_fieldname = "ogc_fid"
+#   tablename = "buildings"
+  sql = """
+      SELECT
+          ST_AsBinary(wkb_geometry) AS wkb_geometry, ogc_fid, building, level, min_height, "building:levels"
+      FROM
+          buildings
+      WHERE
+          wkb_geometry && !BBOX!
+  """
+
+  [[providers.layers]]
+  name = "shape"
+  geometry_fieldname = "wkb_geometry"
+  id_fieldname = "ogc_fid"
+  sql = """
+      SELECT
+          ST_AsBinary(wkb_geometry) AS wkb_geometry, ogc_fid, level, indoor
+      FROM
+          buildings
+      WHERE
+          wkb_geometry && !BBOX!
+  """
+
+  [[providers.layers]]
+  name = "indoor"
+  geometry_fieldname = "wkb_geometry"
+  id_fieldname = "ogc_fid"
+  sql = """
+      SELECT
+          ST_AsBinary(wkb_geometry) AS wkb_geometry, ogc_fid, level, indoor, amenity, shop, name, highway
+      FROM
+          buildings
+      WHERE
+          wkb_geometry && !BBOX!
+  """
 
   [[providers.layers]]
   name = "places"
@@ -46,12 +95,22 @@ srid = 4326             # The default srid for this provider. If not provided it
 
 [[maps]]
 name = "openindoor"
-center = [2.54, 49.015, 17.0] # set the center of the map so the user is auto navigated to Bonn
+center = [2.357945, 48.876263, 17.0]
 
-  # [[maps.layers]]
-  # provider_layer = "openindoor.buildings"
-  # min_zoom = 15
-  # max_zoom = 20
+  [[maps.layers]]
+  provider_layer = "openindoor.building"
+  min_zoom = 15
+  max_zoom = 20
+
+  [[maps.layers]]
+  provider_layer = "openindoor.shape"
+  min_zoom = 15
+  max_zoom = 20
+
+  [[maps.layers]]
+  provider_layer = "openindoor.indoor"
+  min_zoom = 15
+  max_zoom = 20
 
   [[maps.layers]]
   provider_layer = "openindoor.places"
@@ -63,3 +122,7 @@ center = [2.54, 49.015, 17.0] # set the center of the map so the user is auto na
   min_zoom = 0
   max_zoom = 20
 
+  [[maps.layers]]
+  provider_layer = "openindoor.building-footprint"
+  min_zoom = 10
+  max_zoom = 20
