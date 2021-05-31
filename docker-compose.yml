@@ -16,8 +16,8 @@ services:
   openindoor-adminer:
     image: adminer
     restart: always
-    ports:
-      - 8091:8080
+    #ports:
+    # - 8091:8080
 
   openindoor-tegola:
     image: gospatial/tegola:v0.12.1
@@ -27,9 +27,9 @@ services:
       POSTGRES_PASSWORD: admin123    
     command: serve --config /opt/tegola_config/config.toml
     volumes:
-    - ./tegola:/opt/tegola_config
+    - ./tegola-val:/opt/tegola_config
     ports:
-    - 8092:8080
+    - 12092:12092
 
   places-finder:
     # dns:
@@ -43,7 +43,7 @@ services:
       POSTGRES_PASSWORD: admin123
     volumes:
     # - pbf-storage:/data
-    - ./places-finder/data:/data
+    # - ./places-finder/data:/data
     - ./places-finder.py:/places/places-finder.py
     - ./places-finder/regions.json:/places-finder/regions.json
     - ./test:/test

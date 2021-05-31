@@ -49,6 +49,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
       python3-wheel \
       python3-geopandas \
       python3-geojson \
+      python3-numpy \
       python3-pycurl \
       python3-pip \
       python3-rtree \
@@ -75,6 +76,6 @@ COPY ./places-finder.py /places-finder/places-finder.py
 COPY ./regions.json /places-finder/regions.json
 RUN chmod +x /places-finder/places-finder.py
 
-RUN mkdir -p /data/tmp
+#RUN mkdir -p /data/tmp
 
 CMD bash -c "/places-finder/places-finder.py"
