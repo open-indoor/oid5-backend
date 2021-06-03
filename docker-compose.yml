@@ -16,8 +16,8 @@ services:
   openindoor-adminer:
     image: adminer
     restart: always
-    #ports:
-    # - 8091:8080
+    ports:
+     - 8091:8080
 
   openindoor-tegola:
     image: gospatial/tegola:v0.12.1
