@@ -161,7 +161,6 @@ def pbf_extractor(region):
     #____________MODE DEBUG_______________
     new_pbf_file=old_pbf_file
 
-
     building_indoor_pbf = indoor_path + "building_indoor.osm.pbf" #Chemin du fichier pbf
     cmd = \
         "osmium "+ \
@@ -240,10 +239,14 @@ def finder(
     gdf_indoor = gdf[gdf['indoor'].notnull()] #Ne garder que les donnees ayant des donnees indoor
     gdf_indoor = gdf_indoor[gdf_indoor['indoor']!='no']
     gdf_indoor = gdf_indoor.drop_duplicates(subset=["geometry"])
+
     if gdf_indoor.empty:
         print("No indoor data detected")
         return None
     print("Indoor data filtered")
+
+    gdf_building = gdf[gdf["building"].notnull()]
+    gdf_building = gdf_building[gdf_building["building"]!='no']
 
     #Contient les Polygon/MultiPolygon en intersection avec une donnée indoor
     #gdf_building_indoor = gdf[gdf["geometry"].apply(lambda shap : shap if (shap.geom_type in ['Polygon','MultiPolygon'] and gdf_indoor.intersects(shap).any()) else None).notnull()].geometry
@@ -256,16 +259,31 @@ def finder(
     #     gdf_building_indoor = geopandas.GeoDataFrame([Polygon(shap.exterior) for shap in gdf_building_indoor.unary_union],columns=["geometry"])
     #gdf_building_indoor = geopandas.GeoDataFrame(gdf_building_indoor,columns=["geometry"])
     
-    get_polygon_indoor_building = lambda shap : shap if (shap.geom_type in ['Polygon','MultiPolygon'] and gdf_indoor.intersects(shap).any()) else None
+    get_polygon_indoor_building = lambda shap : gdf_indoor.intersects(shap).any()
 
-    gdf_building_indoor = gdf[gdf["geometry"].apply(get_polygon_indoor_building).notnull()].drop_duplicates()
+    gdf_building_indoor = gdf_building[gdf_building["geometry"].apply(get_polygon_indoor_building)].drop_duplicates()
 
 
 
 
     get_polygon_indoor_building_footprint = lambda shap : not(gdf_building_indoor[gdf_building_indoor.geometry.apply(lambda shap2 : not(shap2.equals(shap)))].contains(shap).any())
-
     gdf_building_indoor = gdf_building_indoor[gdf_building_indoor.geometry.apply(get_polygon_indoor_building_footprint)]
+    gdf_building_indoor.dropna(axis=1,how="all",inplace=True)
+    
+    sqlcommand="ALTER TABLE building_footprint "
+
+    n = len(gdf_building_indoor.columns)
+    for i in range(n-1):
+        sqlcommand+="ADD COLUMN IF NOT EXISTS \"{}\" VARCHAR(255)".format(gdf_building_indoor.columns[i])
+        if i<n-2:
+            sqlcommand+=","
+        else:
+            sqlcommand+=";"
+
+    cmd="psql -h openindoor-db -d openindoor-db -p 5432 -U openindoor-db-admin --command='{}'".format(sqlcommand)
+    print(cmd)
+    if n>1:
+        sqlrun = subprocess.run(cmd, shell=True)
     
     print("gdf with building with indoor created")
 
@@ -320,7 +338,8 @@ def finder(
         #     gdf_single_building["openindoor:parent_building_id"] = gdf_building_indoor["openindoor:building_id"].iloc[i]
         #     gdf_single_building["openindoor:id"]=[j + id_element for j in range(gdf_single_building.shape[0])]
         #     id_element+=gdf_single_building.shape[0]
-
+    if gdf_building_indoor.empty :
+        return None
 
     places_geojson = json.loads(gdf_building_indoor.to_json(na='drop')) #Charger en json
     # for place_feature in places_geojson['features']:

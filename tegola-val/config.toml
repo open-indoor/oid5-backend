@@ -16,20 +16,15 @@ srid = 4326             # The default srid for this provider. If not provided it
 
   [[providers.layers]]
   name = "building-footprint"
+  tablename="building_footprint"
   geometry_fieldname = "wkb_geometry"
   id_fieldname = "ogc_fid"
-  sql = """
-      SELECT
-          ST_AsBinary(wkb_geometry) AS wkb_geometry, ogc_fid
-      FROM
-          "building_footprint"
-      WHERE
-          wkb_geometry && !BBOX!
-  """
+  srid = 4326
+  
 
 [[maps]]
 name = "openindoor"
-center = [48.114395, -1.677965, 18.0]
+center = [-1.702744, 48.119395, 18.0]
 
   [[maps.layers]]
   provider_layer = "openindoor.building-footprint"
