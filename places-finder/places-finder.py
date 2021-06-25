@@ -269,6 +269,19 @@ def finder(
     get_polygon_indoor_building_footprint = lambda shap : not(gdf_building_indoor[gdf_building_indoor.geometry.apply(lambda shap2 : not(shap2.equals(shap)))].contains(shap).any())
     gdf_building_indoor = gdf_building_indoor[gdf_building_indoor.geometry.apply(get_polygon_indoor_building_footprint)]
     gdf_building_indoor.dropna(axis=1,how="all",inplace=True)
+
+    if gdf_building_indoor.empty :
+        return None
+
+    get_duplicates = lambda shap : shap.equals
+
+    index_list = []
+    for shap in gdf_building_indoor.geometry:
+        copies = gdf_building_indoor[gdf_building_indoor.geometry.apply(get_duplicates(shap))].geometry
+        if copies.index[0] not in index_list:
+            index_list.append(copies.index[0])
+
+    gdf_building_indoor = gdf_building_indoor.loc[index_list]
     
     sqlcommand="ALTER TABLE building_footprint "
 
@@ -338,8 +351,6 @@ def finder(
         #     gdf_single_building["openindoor:parent_building_id"] = gdf_building_indoor["openindoor:building_id"].iloc[i]
         #     gdf_single_building["openindoor:id"]=[j + id_element for j in range(gdf_single_building.shape[0])]
         #     id_element+=gdf_single_building.shape[0]
-    if gdf_building_indoor.empty :
-        return None
 
     places_geojson = json.loads(gdf_building_indoor.to_json(na='drop')) #Charger en json
     # for place_feature in places_geojson['features']:
@@ -360,7 +371,7 @@ def finder(
         + "-update " \
         + "-append " \
         + "-f " \
-        + "\"PostgreSQL\" PG:\"dbname='openindoor-db' host='openindoor-db' port='5432' user='openindoor-db-admin' password='admin123'\" " \
+        + "\"PostgreSQL\" PG:\"dbname='openindoor-db' host='openindoor-db' port='5432' user='openindoor-db-admin' password='{}'\" ".format(os.environ['POSTGRES_PASSWORD']) \
         + polygon_file + " " \
         + "-nln public.building_footprint " \
         + "-skipfailures"
@@ -447,4 +458,3 @@ def main():
 if __name__ == "__main__":
     main()
 
-# ogr2ogr -f "PostgreSQL" PG:"dbname='openindoor-db' host='openindoor-db' port='5432' user='openindoor-db-admin' password='admin123'"  /../../data/bretagne-filtered.geojson -nln buildings -overwrite -skipfailures
