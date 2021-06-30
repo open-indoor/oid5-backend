@@ -110,7 +110,7 @@ def splitter(
             os.remove(my_finder["input_pbf"])
         elif size < 100:
             os.remove(my_finder["input_pbf"])
-            print("removed because size too small")
+            #print("removed because size too small")
         else:
             print("Working with file : ",my_finder["input_pbf"])
             finder(file_name=my_finder["input_pbf"],region_name=region_name)
@@ -211,15 +211,18 @@ def finder(
     with subprocess.Popen(
         "osmium export "
         + file_name + " "
-        + "--output-format=geojson ",
+        + "--output-format=geojson "
+        + "--add-unique-id=type_id ",
         shell=True,
         stdout=subprocess.PIPE
     ) as proc_export:#export en geojson
         gdf = geopandas.read_file(proc_export.stdout) #lecture du fichier geojson en geodataframe
 
     if 'indoor' not in gdf:
-        print("No indoor data detected")
+        #print("No indoor data detected")
         return None
+
+    gdf.rename(columns={"id":"openindoor_id"},inplace=True)
     
     tab = numpy.empty([gdf.shape[0],1],dtype=object)
     tab[:,0] = [
@@ -234,7 +237,7 @@ def finder(
             for shap in gdf.geometry
     ]
     gdf.loc[:, 'geometry'] = tab
-    print("Correction LineStrings to Polygons done")
+    #print("Correction LineStrings to Polygons done")
 
     gdf_indoor = gdf[gdf['indoor'].notnull()] #Ne garder que les donnees ayant des donnees indoor
     gdf_indoor = gdf_indoor[gdf_indoor['indoor']!='no']
@@ -298,7 +301,7 @@ def finder(
     if n>1:
         sqlrun = subprocess.run(cmd, shell=True)
     
-    print("gdf with building with indoor created")
+    #print("gdf with building with indoor created")
 
         #Regrouper les polygones qui se superposent en un seul polygone
         # new_polys=[]
@@ -449,7 +452,7 @@ def finder(
     #     json.dump(json.loads(gdf_clean.to_json(na="drop")), outfile)
 
 def main():
-    print("coucou")
+    #print("coucou")
     with open('regions.json') as regions:
         region_data = json.load(regions)
     for region in region_data['regions']:
