@@ -8,6 +8,7 @@ import uuid
 import subprocess
 import geopandas
 from shapely.geometry import Polygon, Point, mapping
+from shapely.geometry.base import geometry_type_name
 import fiona
 import pandas
 import random
@@ -19,6 +20,9 @@ from shapely.ops import unary_union
 import numpy
 import wget
 from datetime import datetime
+from sqlalchemy import Table, MetaData, Column, Integer, String, TIMESTAMP, create_engine, BigInteger, dialects, inspect
+from sqlalchemy.dialects.postgresql import insert
+from geoalchemy2 import WKTElement, Geometry
 
 def deg2num(lon_deg, lat_deg, zoom):
     lat_rad = math.radians(lat_deg)
@@ -285,21 +289,30 @@ def finder(
             index_list.append(copies.index[0])
 
     gdf_building_indoor = gdf_building_indoor.loc[index_list]
+
+    gdf_to_db(gdf=gdf_building_indoor,
+        system="postgresql",
+        user="openindoor-db-admin",
+        password=os.environ["POSTGRES_PASSWORD"],
+        server="openindoor-db",
+        port=5432,
+        db_name="openindoor-db",
+        db_table_name="building_footprint")
     
-    sqlcommand="ALTER TABLE building_footprint "
+    # sqlcommand="ALTER TABLE building_footprint "
 
-    n = len(gdf_building_indoor.columns)
-    for i in range(n-1):
-        sqlcommand+="ADD COLUMN IF NOT EXISTS \"{}\" VARCHAR(255)".format(gdf_building_indoor.columns[i])
-        if i<n-2:
-            sqlcommand+=","
-        else:
-            sqlcommand+=";"
+    # n = len(gdf_building_indoor.columns)
+    # for i in range(n-1):
+    #     sqlcommand+="ADD COLUMN IF NOT EXISTS \"{}\" VARCHAR(255)".format(gdf_building_indoor.columns[i])
+    #     if i<n-2:
+    #         sqlcommand+=","
+    #     else:
+    #         sqlcommand+=";"
 
-    cmd="psql -h openindoor-db -d openindoor-db -p 5432 -U openindoor-db-admin --command='{}'".format(sqlcommand)
-    print(cmd)
-    if n>1:
-        sqlrun = subprocess.run(cmd, shell=True)
+    # cmd="psql -h openindoor-db -d openindoor-db -p 5432 -U openindoor-db-admin --command='{}'".format(sqlcommand)
+    # print(cmd)
+    # if n>1:
+    #     sqlrun = subprocess.run(cmd, shell=True)
     
     #print("gdf with building with indoor created")
 
@@ -355,34 +368,42 @@ def finder(
         #     gdf_single_building["openindoor:id"]=[j + id_element for j in range(gdf_single_building.shape[0])]
         #     id_element+=gdf_single_building.shape[0]
 
-    places_geojson = json.loads(gdf_building_indoor.to_json(na='drop')) #Charger en json
-    # for place_feature in places_geojson['features']:
-    #     """Integrer dans building_indoors"""
-    #     coordinates = place_feature['geometry']['coordinates']
-    #     building_indoor['features'][0]['geometry']['coordinates'].append(coordinates)
-    # print("coordinates registered")
+    # places_geojson = json.loads(gdf_building_indoor.to_json(na='drop')) #Charger en json
+    # # for place_feature in places_geojson['features']:
+    # #     """Integrer dans building_indoors"""
+    # #     coordinates = place_feature['geometry']['coordinates']
+    # #     building_indoor['features'][0]['geometry']['coordinates'].append(coordinates)
+    # # print("coordinates registered")
 
-    polygon_file = indoor_path + "building_indoor_polygon.geojson"
+    # polygon_file = indoor_path + "building_indoor_polygon.geojson"
 
 
-    # print("write: " + output_file)
-    with open(polygon_file, 'w') as outfile:
-        json.dump(places_geojson, outfile)
-        outfile.flush()
+    # # print("write: " + output_file)
+    # with open(polygon_file, 'w') as outfile:
+    #     json.dump(places_geojson, outfile)
+    #     outfile.flush()
 
-    cmd = "ogr2ogr " \
-        + "-update " \
-        + "-append " \
-        + "-f " \
-        + "\"PostgreSQL\" PG:\"dbname='openindoor-db' host='openindoor-db' port='5432' user='openindoor-db-admin' password='{}'\" ".format(os.environ['POSTGRES_PASSWORD']) \
-        + polygon_file + " " \
-        + "-nln public.building_footprint " \
-        + "-skipfailures"
-    print("cmd: " + cmd)
-    ddb_insert = subprocess.run(
-        cmd,
-        shell=True
-    )
+    # sqlcommand = "DELETE FROM building_footprint WHERE openindoor_region=" + region_name
+    # cmd="psql -h openindoor-db -d openindoor-db -p 5432 -U openindoor-db-admin --command='{}'".format(sqlcommand)
+    # print(cmd)
+    # ddb_delete = subprocess.run(
+    #     cmd,
+    #     shell=True
+    # )
+
+    # cmd = "ogr2ogr " \
+    #     + "-update " \
+    #     + "-append " \
+    #     + "-f " \
+    #     + "\"PostgreSQL\" PG:\"dbname='openindoor-db' host='openindoor-db' port='5432' user='openindoor-db-admin' password='{}'\" ".format(os.environ['POSTGRES_PASSWORD']) \
+    #     + polygon_file + " " \
+    #     + "-nln public.building_footprint " \
+    #     + "-skipfailures"
+    # print("cmd: " + cmd)
+    # ddb_insert = subprocess.run(
+    #     cmd,
+    #     shell=True
+    # )
 
 
 
@@ -451,8 +472,76 @@ def finder(
     # with open(places_file_geojson_cleaning,"w") as outfile:
     #     json.dump(json.loads(gdf_clean.to_json(na="drop")), outfile)
 
+    
+
+
+
+def upsert(table, conn, keys, data_iter):
+    """
+    Execute SQL statement inserting data
+
+    Parameters
+    ----------
+    table : pandas.io.sql.SQLTable
+    conn : sqlalchemy.engine.Engine or sqlalchemy.engine.Connection
+    keys : list of str
+        Column names
+    data_iter : Iterable that iterates the values to be inserted
+    unique_id : primary key
+    """
+    # print("table:" + table.table.name)
+
+    # Add contraint if missing
+
+    unique_id="openindoor_id"
+    conn.execute('''
+        ALTER TABLE {1} DROP CONSTRAINT IF EXISTS constraint_{2};
+        ALTER TABLE {1} ADD CONSTRAINT constraint_{2} PRIMARY KEY({2});
+        ALTER TABLE {1} ALTER COLUMN {2} SET NOT NULL;
+        ALTER TABLE {1} ALTER COLUMN geometry TYPE geometry;
+    '''.replace('{1}', table.table.name).replace('{2}', unique_id))
+
+    insert_stmt=insert(table.table)
+    # Prepare upsert statement
+    my_dict={}
+    for key in keys:
+        my_dict[key]=insert_stmt.excluded[key]
+        # Create column if missing
+        conn.execute('''
+            ALTER TABLE {} ADD COLUMN IF NOT EXISTS {} {};
+        '''.format(
+            table.table.name,
+            '"' + key + '"',
+            insert_stmt.excluded[key].type)
+        )
+    upsert_stmt=insert_stmt.on_conflict_do_update(
+        index_elements = [unique_id],
+        set_ = my_dict
+    )
+    data=[dict(zip(keys, row)) for row in data_iter]
+    conn.execute(upsert_stmt, data)
+
+def gdf_to_db(gdf, system, user, password, server, port, db_name, db_table_name):
+    engine=create_engine(system + "://" + user + ":" + password +"@" + server + ":" + str(port) + "/" + db_name)
+
+
+    gdf['geometry']=gdf.geometry.apply(lambda geom: WKTElement(geom.wkt, srid=4326))
+    gdf.rename(columns={"geometry":"geometry"},inplace=True)
+    gdf.rename(columns={"id":"openindoor_id"},inplace=True)
+
+
+    gdf.to_sql(
+        name = db_table_name,
+        con = engine,
+        if_exists = 'append',
+        index = False,
+        dtype = {'geometry': Geometry(geometry_type='POLYGON', srid=4326)},
+        method = upsert
+)
+
+
 def main():
-    #print("coucou")
+    print("coucou")
     with open('regions.json') as regions:
         region_data = json.load(regions)
     for region in region_data['regions']:

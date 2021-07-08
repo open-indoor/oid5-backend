@@ -1,0 +1,4 @@
+{"type":"FeatureCollection","features":[
+    {"type":"Feature","id":"n262473119","geometry":{"type":"Point","coordinates":[-1.7031677,48.1180231]},"properties":{"door":"hinged","level":"0","width":"1.35"}},
+    {"type":"Feature","id":"n369706876","geometry":{"type":"Point","coordinates":[-1.7106173,48.1182484]},"properties":{"source":"cadastre-dgi-fr source : Direction Générale des Impôts - Cadastre ; mise à jour : 2008"}},
+    {"type":"Feature","id":"n369707097","geometry":{"type":"Point","coordinates":[-1.7038836,48.1194985]},"properties":{"source":"cadastre-dgi-fr source : Direction Générale des Impôts - Cadastre ; mise à jour : 2008"}}]}

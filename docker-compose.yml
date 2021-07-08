@@ -44,8 +44,10 @@ services:
     volumes:
     # - pbf-storage:/data
     # - ./places-finder/data:/data
-    - ./places-finder.py:/places/places-finder.py
+    - ./places-finder/places-finder.py:/places-finder/places-finder.py
     - ./places-finder/regions.json:/places-finder/regions.json
+    - ./places-finder/tester.py:/places-finder/tester.py
+    - ./places-finder/tester2.py:/places-finder/tester2.py
     - ./test:/test
 
     # - ./places-flask.py:/places/places-flask.py
