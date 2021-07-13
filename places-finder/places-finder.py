@@ -174,7 +174,7 @@ def pbf_extractor(region):
         "--output-format=pbf " +\
         "--output=" + building_indoor_pbf + " " +\
         new_pbf_file + " " +\
-        "w/indoor w/building:levels"
+        "a/indoor a/building:levels a/building"
     #Filtrage du fichier pbf pour ne garder que les batiments voulus.
     print(cmd)
     building_indoor_filter = subprocess.run(cmd, shell=True)
@@ -266,7 +266,7 @@ def finder(
     #     gdf_building_indoor = geopandas.GeoDataFrame([Polygon(shap.exterior) for shap in gdf_building_indoor.unary_union],columns=["geometry"])
     #gdf_building_indoor = geopandas.GeoDataFrame(gdf_building_indoor,columns=["geometry"])
     
-    get_polygon_indoor_building = lambda shap : gdf_indoor.intersects(shap).any()
+    get_polygon_indoor_building = lambda shap : shap.geom_type in ['Polygon','MultiPolygon'] and gdf_indoor.intersects(shap).any()
 
     gdf_building_indoor = gdf_building[gdf_building["geometry"].apply(get_polygon_indoor_building)].drop_duplicates()
 
@@ -289,6 +289,7 @@ def finder(
             index_list.append(copies.index[0])
 
     gdf_building_indoor = gdf_building_indoor.loc[index_list]
+    gdf_building_indoor["openindoor_centroid"] = gdf_building_indoor.centroid
 
     gdf_to_db(gdf=gdf_building_indoor,
         system="postgresql",
@@ -499,6 +500,7 @@ def upsert(table, conn, keys, data_iter):
         ALTER TABLE {1} ADD CONSTRAINT constraint_{2} PRIMARY KEY({2});
         ALTER TABLE {1} ALTER COLUMN {2} SET NOT NULL;
         ALTER TABLE {1} ALTER COLUMN geometry TYPE geometry;
+        ALTER TABLE {1} ALTER COLUMN openindoor_centroid TYPE geometry;
     '''.replace('{1}', table.table.name).replace('{2}', unique_id))
 
     insert_stmt=insert(table.table)
@@ -526,7 +528,7 @@ def gdf_to_db(gdf, system, user, password, server, port, db_name, db_table_name)
 
 
     gdf['geometry']=gdf.geometry.apply(lambda geom: WKTElement(geom.wkt, srid=4326))
-    gdf.rename(columns={"geometry":"geometry"},inplace=True)
+    gdf['openindoor_centroid']=gdf.openindoor_centroid.apply(lambda geom: WKTElement(geom.wkt, srid=4326))
     gdf.rename(columns={"id":"openindoor_id"},inplace=True)
 
 
@@ -535,7 +537,7 @@ def gdf_to_db(gdf, system, user, password, server, port, db_name, db_table_name)
         con = engine,
         if_exists = 'append',
         index = False,
-        dtype = {'geometry': Geometry(geometry_type='POLYGON', srid=4326)},
+        dtype = {'geometry': Geometry(geometry_type='POLYGON', srid=4326),'openindoor_centroid': Geometry(geometry_type='POINT', srid=4326)},
         method = upsert
 )
 
