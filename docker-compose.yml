@@ -10,17 +10,34 @@ services:
       POSTGRES_DB: openindoor-db
       POSTGRES_USER: openindoor-db-admin
       POSTGRES_PASSWORD: admin123
-    ports:
-    - 5432:5432
+    # ports:
+    # - 5432:5432
 
-  openindoor-adminer:
+  adminer:
     image: adminer
     restart: always
     ports:
-      - 8091:8080
+      - 19991:8080
 
-  openindoor-tegola:
-    image: gospatial/tegola:v0.12.1
+  # pgadmin:
+  #   container_name: pgadmin_container
+  #   image: dpage/pgadmin4
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-pgadmin4@pgadmin.org}
+  #     PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+  #     PGADMIN_CONFIG_SERVER_MODE: 'False'
+  #   # volumes:
+  #   #    - pgadmin:/root/.pgadmin
+  #   ports:
+  #     - 19091:80
+  #   restart: unless-stopped
+
+# volumes:
+#   pgadmin:      
+    
+    
+  tegola:
+    image: gospatial/tegola:v0.13.0
     environment:
       POSTGRES_DB: openindoor-db
       POSTGRES_USER: openindoor-db-admin
@@ -29,7 +46,7 @@ services:
     volumes:
     - ./tegola:/opt/tegola_config
     ports:
-    - 8092:8080
+    - 8080:8080
 
   places-finder:
     # dns:
@@ -41,21 +58,41 @@ services:
       POSTGRES_DB: openindoor-db
       POSTGRES_USER: openindoor-db-admin
       POSTGRES_PASSWORD: admin123
+    command: /places-finder/places-finder.py
     volumes:
     # - pbf-storage:/data
     - ./places-finder/data:/data
-    - ./places-finder.py:/places/places-finder.py
+    - ./places-finder/test.py:/places-finder/test.py
+    - ./places-finder/places-finder.py:/places-finder/places-finder.py
+    - ./places-finder/places-finder-relation.py:/places-finder/places-finder-relation.py
+    - ./places-finder/indoor-miner.py:/places-finder/indoor-miner.py
+    - ./places-finder/indoor-analyser.py:/places-finder/indoor-analyser.py
+    - ./places-finder/requirements.txt:/places-finder/requirements.txt
+    - ./places-finder/mygeojson.json:/places-finder/mygeojson.json
     - ./places-finder/regions.json:/places-finder/regions.json
     - ./test:/test
 
-    # - ./places-flask.py:/places/places-flask.py
-    # - ./ogr2ogr.py:/places/ogr2ogr.py
-    # - ./init_db.sh:/places/init_db.sh
-    # - ./import.sh:/places/import.sh
-    # - ./test:/test
-    # ports:
-    #   - 8001:80
-    command: /places-finder/places-finder.py
+  indoor-miner:
+    image: openindoor/places-finder
+    environment:
+      POSTGRES_DB: openindoor-db
+      POSTGRES_USER: openindoor-db-admin
+      POSTGRES_PASSWORD: admin123
+    command: /places-finder/indoor-miner.py
+    volumes:
+    - ./places-finder/data:/data
+    - ./places-finder/test.py:/places-finder/test.py
+    - ./places-finder/indoor-miner.py:/places-finder/indoor-miner.py
+    - ./places-finder/regions.json:/places-finder/regions.json
+
+  #   # - ./places-flask.py:/places/places-flask.py
+  #   # - ./ogr2ogr.py:/places/ogr2ogr.py
+  #   # - ./init_db.sh:/places/init_db.sh
+  #   # - ./import.sh:/places/import.sh
+  #   # - ./test:/test
+  #   # ports:
+  #   #   - 8001:80
+  #   command: /places-finder/places-finder.py
 
 volumes:
   pbf-storage:

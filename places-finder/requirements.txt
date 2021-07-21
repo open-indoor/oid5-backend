@@ -1,4 +1,3 @@
-pycurl
-geojson
-turfpy
-pycurl
+geoalchemy2
+wget
+pyrosm

@@ -1,24 +1,11 @@
 ################ PLACES #####################
-FROM debian:testing
+FROM fedora:rawhide
 
-RUN apt-get -qq update \
-  && DEBIAN_FRONTEND=noninteractive \
-  apt-get -y install --no-install-recommends \
-    ca-certificates \
-  && apt-get clean
-
-# RUN echo "deb [trusted=yes] https://apt.fury.io/caddy/ /" \
-#     | tee -a /etc/apt/sources.list.d/caddy-fury.list
-RUN export DEBIAN_FRONTEND=noninteractive \
-    && apt-get -y update \
-    && apt-get -y install \
-      --no-install-recommends \
+RUN dnf -y upgrade \
+    && dnf -y install \
       bash \
-    #   caddy \
-      cron \
+      cronie \
       curl \
-      dnsutils \
-      fcgiwrap \
       file \
       gettext \
       git \
@@ -27,41 +14,32 @@ RUN export DEBIAN_FRONTEND=noninteractive \
       jq \
       less \
       net-tools \
-      network-manager \
       nmap \
       osmium-tool \
-      procps \
+      procps-ng \
       unzip \
       util-linux \
-      uuid-runtime \
+      uuid \
       vim \
       wget \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && dnf -y clean all
 
-RUN export DEBIAN_FRONTEND=noninteractive \
-    && apt-get -y update \
-    && apt-get -y install \
-      --no-install-recommends \
-      gdal-bin \
+RUN dnf -y install \
+      gdal \
       osmctools \
-      postgresql-client \
+      postgresql \
       python3-wheel \
       python3-geopandas \
       python3-geojson \
       python3-pycurl \
       python3-pip \
       python3-rtree \
-      python3-pyosmium \
       python3-requests \
       python3-flask \
       python3-sqlalchemy \
       python3-psycopg2 \ 
-      python3-geoalchemy2 \
       python3-socketio \
-      python3-wget \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && dnf -q clean all
 
 RUN mkdir -p /places-finder
 COPY ./requirements.txt /places-finder/

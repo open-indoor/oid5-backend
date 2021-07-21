@@ -159,6 +159,7 @@ def finder(
                 )
                 # )
         )]
+        
         buildings.loc[:, 'geometry'] = [
             Polygon(mapping(shap)['coordinates'])
                 if shap.geom_type=='LineString' else

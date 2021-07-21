@@ -1,7 +1,7 @@
 [webserver]
-port = ":11092"
-hostname = "vegeta.openindoor.io"
-uri_prefix = "/tegola-debian"
+port = ":8080"
+hostname = "tegola.openindoor.io"
+uri_prefix = ""
 
 # register data providers
 [[providers]]
@@ -15,114 +15,103 @@ password = "admin123"           # postgis database password
 srid = 4326             # The default srid for this provider. If not provided it will be WebMercator (3857)
 
   [[providers.layers]]
-  name = "building-footprint"
-  geometry_fieldname = "wkb_geometry"
-  id_fieldname = "ogc_fid"
+  name = "footprint"
+  geometry_fieldname = "geometry"
+  id_fieldname = "id"
+  srid = 4326
   sql = """
       SELECT
-          ST_AsBinary(wkb_geometry) AS wkb_geometry, ogc_fid
-      FROM
-          "building_footprint"
-      WHERE
-          wkb_geometry && !BBOX!
-  """
-
-  [[providers.layers]]
-  name = "building"
-  geometry_fieldname = "wkb_geometry"
-  id_fieldname = "ogc_fid"
-#   tablename = "buildings"
-  sql = """
-      SELECT
-          ST_AsBinary(wkb_geometry) AS wkb_geometry, ogc_fid, building, level, min_height, "building:levels"
-      FROM
-          buildings
-      WHERE
-          wkb_geometry && !BBOX!
-  """
-
-  [[providers.layers]]
-  name = "shape"
-  geometry_fieldname = "wkb_geometry"
-  id_fieldname = "ogc_fid"
-  sql = """
-      SELECT
-          ST_AsBinary(wkb_geometry) AS wkb_geometry, ogc_fid, level, indoor
-      FROM
-          buildings
-      WHERE
-          wkb_geometry && !BBOX!
-  """
-
-  [[providers.layers]]
-  name = "indoor"
-  geometry_fieldname = "wkb_geometry"
-  id_fieldname = "ogc_fid"
-  sql = """
-      SELECT
-          ST_AsBinary(wkb_geometry) AS wkb_geometry, ogc_fid, level, indoor, amenity, shop, name, highway
-      FROM
-          buildings
-      WHERE
-          wkb_geometry && !BBOX!
-  """
-
-  [[providers.layers]]
-  name = "places"
-  geometry_fieldname = "wkb_geometry"
-  id_fieldname = "ogc_fid"
-  sql = """
-      SELECT
-          ST_AsBinary(wkb_geometry) AS wkb_geometry, name, id, town, ogc_fid
-      FROM
-          places
-      WHERE
-          wkb_geometry && !BBOX!
+          alt_name,
+          amenity,
+          architect,
+          building,
+          "building:height",
+          "building:levels",
+          "building:level",
+          "building:max_level",
+          "building:part",
+          height,
+          level,
+          maxheight,
+          min_height,
+          min_level,
+          max_level,
+          maxheight,
+          museum,
+          name,
+          region,
+          tourism,
+          shop,
+          wheelchair,
+          wikipedia,
+          ('x'||substr(md5(id),1,16))::bit(64)::bigint as tegola_id,
+          ST_AsBinary(geometry) AS geometry,
+          ST_GeometryType(geometry) AS geometry_type
+      FROM footprint
+      WHERE geometry && !BBOX!
   """
 
   [[providers.layers]]
   name = "pins"
-  geometry_fieldname = "wkb_geometry"
-  id_fieldname = "ogc_fid"
+  geometry_fieldname = "centroid"
+  id_fieldname = "id"
+  srid = 4326
   sql = """
       SELECT
-          ST_AsBinary(wkb_geometry) AS wkb_geometry, id, town, ogc_fid
-      FROM
-          pins
-      WHERE
-          wkb_geometry && !BBOX!
+          ('x'||substr(md5(id),1,16))::bit(64)::bigint as tegola_id,
+          ST_AsBinary(centroid) AS centroid,
+          ST_GeometryType(centroid) AS centroid_type
+      FROM footprint
+      WHERE centroid && !BBOX!
+  """
+
+  [[providers.layers]]
+  name = "indoor"
+  geometry_fieldname = "geometry"
+  id_fieldname = "id"
+  srid = 4326
+  sql = """
+      SELECT
+          "addr:housenumber",
+          conveying,
+          brand,
+          "building:levels",
+          cuisine,
+          height,
+          highway,
+          indoor,
+          level,
+          "level:ref",
+          name,
+          operator,
+          ref,
+          region,
+          shop,
+          source,
+          wikipedia,
+          ('x'||substr(md5(id),1,16))::bit(64)::bigint as tegola_id,
+          ST_AsBinary(geometry) AS geometry,
+          ST_GeometryType(geometry) AS geometry_type
+      FROM indoor
+      WHERE geometry && !BBOX!
   """
 
 [[maps]]
 name = "openindoor"
-center = [2.357945, 48.876263, 17.0]
+#center = [-1.70223, 48.11947, 17.0]
+center = [2.3579127, 48.8762027, 17.0]
 
   [[maps.layers]]
-  provider_layer = "openindoor.building"
-  min_zoom = 15
-  max_zoom = 20
-
-  [[maps.layers]]
-  provider_layer = "openindoor.shape"
-  min_zoom = 15
-  max_zoom = 20
-
-  [[maps.layers]]
-  provider_layer = "openindoor.indoor"
-  min_zoom = 15
-  max_zoom = 20
-
-  [[maps.layers]]
-  provider_layer = "openindoor.places"
-  min_zoom = 15
+  provider_layer = "openindoor.footprint"
+  min_zoom = 12
   max_zoom = 20
 
   [[maps.layers]]
   provider_layer = "openindoor.pins"
-  min_zoom = 0
-  max_zoom = 20
+  min_zoom = 4
+  max_zoom = 12
 
   [[maps.layers]]
-  provider_layer = "openindoor.building-footprint"
-  min_zoom = 10
+  provider_layer = "openindoor.indoor"
+  min_zoom = 15
   max_zoom = 20
