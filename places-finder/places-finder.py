@@ -174,7 +174,7 @@ def pbf_extractor(region):
         "--output-format=pbf " +\
         "--output=" + building_indoor_pbf + " " +\
         new_pbf_file + " " +\
-        "a/indoor a/building:levels a/building"
+        "wa/indoor a/building:levels a/building"
     #Filtrage du fichier pbf pour ne garder que les batiments voulus.
     print(cmd)
     building_indoor_filter = subprocess.run(cmd, shell=True)

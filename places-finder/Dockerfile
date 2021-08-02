@@ -58,6 +58,7 @@ COPY ./tester.py /places-finder/tester.py
 COPY ./tester2.py /places-finder/tester2.py
 COPY ./mygeojson.geojson /places-finder/mygeojson.geojson
 COPY ./mygeojson2.geojson /places-finder/mygeojson2.geojson
+COPY ./interior_data.py /places-finder/interior_data.py
 RUN chmod 0600 /root/.pgpass
 RUN chmod +x /places-finder/places-finder.py
 RUN chmod +x /places-finder/tester.py

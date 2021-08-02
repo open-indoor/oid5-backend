@@ -48,6 +48,7 @@ services:
     - ./places-finder/regions.json:/places-finder/regions.json
     - ./places-finder/tester.py:/places-finder/tester.py
     - ./places-finder/tester2.py:/places-finder/tester2.py
+    - ./places-finder/interior_data.py:/places-finder/interior_data.py
     - ./test:/test
 
     # - ./places-flask.py:/places/places-flask.py
