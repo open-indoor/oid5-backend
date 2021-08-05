@@ -1,11 +1,24 @@
 ################ PLACES #####################
-FROM fedora:rawhide
+FROM debian:testing
 
-RUN dnf -y upgrade \
-    && dnf -y install \
+RUN apt-get -qq update \
+  && DEBIAN_FRONTEND=noninteractive \
+  apt-get -y install --no-install-recommends \
+    ca-certificates \
+  && apt-get clean
+
+# RUN echo "deb [trusted=yes] https://apt.fury.io/caddy/ /" \
+#     | tee -a /etc/apt/sources.list.d/caddy-fury.list
+RUN export DEBIAN_FRONTEND=noninteractive \
+    && apt-get -y update \
+    && apt-get -y install \
+      --no-install-recommends \
       bash \
-      cronie \
+    #   caddy \
+      cron \
       curl \
+      dnsutils \
+      fcgiwrap \
       file \
       gettext \
       git \
@@ -14,35 +27,43 @@ RUN dnf -y upgrade \
       jq \
       less \
       net-tools \
+      network-manager \
       nmap \
       osmium-tool \
-      procps-ng \
+      procps \
       unzip \
       util-linux \
-      uuid \
+      uuid-runtime \
       vim \
       wget \
-    && dnf -y clean all
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN dnf -y install \
-      gdal \
+RUN export DEBIAN_FRONTEND=noninteractive \
+    && apt-get -y update \
+    && apt-get -y install \
+      --no-install-recommends \
+      gdal-bin \
       osmctools \
-      postgresql \
+      postgresql-client \
       python3-wheel \
       python3-geopandas \
       python3-geojson \
+      python3-numpy \
       python3-pycurl \
       python3-pip \
       python3-rtree \
+      python3-pyosmium \
       python3-requests \
       python3-flask \
       python3-sqlalchemy \
       python3-psycopg2 \ 
+      python3-geoalchemy2 \
       python3-socketio \
-    && dnf -q clean all
+      python3-wget \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN pip install wget
-RUN pip install geoalchemy2
 RUN mkdir -p /places-finder
 COPY ./requirements.txt /places-finder/
 RUN pip3 install -r /places-finder/requirements.txt
@@ -52,17 +73,11 @@ RUN pip3 install -r /places-finder/requirements.txt
 WORKDIR /places-finder
 
 COPY ./places-finder.py /places-finder/places-finder.py
-COPY ./regions.json /places-finder/regions.json
-COPY ./.pgpass /root/.pgpass
-COPY ./tester.py /places-finder/tester.py
-COPY ./tester2.py /places-finder/tester2.py
-COPY ./mygeojson.geojson /places-finder/mygeojson.geojson
-COPY ./mygeojson2.geojson /places-finder/mygeojson2.geojson
 COPY ./interior_data.py /places-finder/interior_data.py
-RUN chmod 0600 /root/.pgpass
+COPY ./regions.json /places-finder/regions.json
+COPY ./keep.json /places-finder/keep.json
 RUN chmod +x /places-finder/places-finder.py
-RUN chmod +x /places-finder/tester.py
-
+RUN chmod +x /places-finder/interior_data.py
 
 #RUN mkdir -p /data/tmp
 

@@ -62,14 +62,13 @@ srid = 4326             # The default srid for this provider. If not provided it
   name = "building-item-polygon"
   sql = """
       SELECT
-        ST_AsBinary(geometry) as geometry, openindoor_id_item
+        ST_AsBinary(geometry) as geometry
       FROM
         "building_item"
       WHERE
         geometry && !BBOX! AND openindoor_geomtype='Polygon'
   """
   geometry_fieldname = "geometry"
-  id_fieldname="openindoor_id_item"
   srid = 4326
   geometry_type = "Polygon"
 

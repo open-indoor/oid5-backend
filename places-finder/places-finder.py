@@ -41,11 +41,12 @@ def num2deg(xtile, ytile, zoom):
 
 
 def splitter(
-        input_pbf="data/europe_france_bretagne/indoor/building_indoor.osm.pbf",
+        input_pbf,
+        gdf,
+        region_name,
         zoom=1,
         max_zoom = 18,
         bbox={"xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1},
-        region_name="europe_france_bretagne"
     ):
     # if (bbox.xmax - bbox.xmin) > 2 or bbox.ymax - bbox.ymin) > 2:
     #     splitter(
@@ -104,8 +105,9 @@ def splitter(
     for my_finder in my_finders:
         size = os.path.getsize(my_finder["input_pbf"])
         if size > 100000 and zoom < max_zoom:
-            splitter(
+            gdf = splitter(
                 input_pbf=my_finder["input_pbf"],
+                gdf=gdf,
                 zoom=my_finder["zoom"],
                 max_zoom=max_zoom,
                 region_name=region_name,
@@ -117,8 +119,9 @@ def splitter(
             #print("removed because size too small")
         else:
             print("Working with file : ",my_finder["input_pbf"])
-            finder(file_name=my_finder["input_pbf"],region_name=region_name)
+            gdf = gdf.append(finder(file_name=my_finder["input_pbf"],region_name=region_name))
             #os.remove(my_finder["input_pbf"])
+    return gdf
 
 def pbf_extractor(region):
     """
@@ -174,14 +177,17 @@ def pbf_extractor(region):
         "--output-format=pbf " +\
         "--output=" + building_indoor_pbf + " " +\
         new_pbf_file + " " +\
-        "wa/indoor a/building:levels a/building"
+        "wa/indoor wa/building:levels"
     #Filtrage du fichier pbf pour ne garder que les batiments voulus.
     print(cmd)
     building_indoor_filter = subprocess.run(cmd, shell=True)
 
+
     #Decoupage du fichier en 4
-    splitter(
+
+    mygdf = splitter(
         input_pbf=building_indoor_pbf,
+        gdf=geopandas.GeoDataFrame(),
         zoom=1,
         max_zoom=18,
         region_name=region_name,
@@ -194,6 +200,8 @@ def pbf_extractor(region):
     #     input_pbf=building_indoor_pbf,
     #     region_name=region_name
     # )
+
+    return mygdf
 
 def finder(
     file_name,
@@ -289,16 +297,10 @@ def finder(
             index_list.append(copies.index[0])
 
     gdf_building_indoor = gdf_building_indoor.loc[index_list]
+
     gdf_building_indoor["openindoor_centroid"] = gdf_building_indoor.centroid
 
-    gdf_to_db(gdf=gdf_building_indoor,
-        system="postgresql",
-        user="openindoor-db-admin",
-        password=os.environ["POSTGRES_PASSWORD"],
-        server="openindoor-db",
-        port=5432,
-        db_name="openindoor-db",
-        db_table_name="building_footprint")
+    return gdf_building_indoor
     
     # sqlcommand="ALTER TABLE building_footprint "
 
@@ -495,9 +497,9 @@ def upsert(table, conn, keys, data_iter):
     # Add contraint if missing
 
     unique_id="openindoor_id"
+    #ALTER TABLE {1} DROP CONSTRAINT IF EXISTS constraint_{2};
+    #ALTER TABLE {1} ADD CONSTRAINT constraint_{2} PRIMARY KEY({2});
     conn.execute('''
-        ALTER TABLE {1} DROP CONSTRAINT IF EXISTS constraint_{2};
-        ALTER TABLE {1} ADD CONSTRAINT constraint_{2} PRIMARY KEY({2});
         ALTER TABLE {1} ALTER COLUMN {2} SET NOT NULL;
         ALTER TABLE {1} ALTER COLUMN geometry TYPE geometry;
         ALTER TABLE {1} ALTER COLUMN openindoor_centroid TYPE geometry;
@@ -543,11 +545,30 @@ def gdf_to_db(gdf, system, user, password, server, port, db_name, db_table_name)
 
 
 def main():
-    print("coucou")
+    mygdf = geopandas.GeoDataFrame()
     with open('regions.json') as regions:
         region_data = json.load(regions)
     for region in region_data['regions']:
-        pbf_extractor(region)
+        mygdf = mygdf.append(pbf_extractor(region))
+    
+    with open("keep.json") as keep:
+        keep_data = json.load(keep)
+
+    serie = mygdf.isnull().sum().apply(lambda n : n/mygdf.shape[0]*100<95)
+    keep_list = serie.loc[serie].index
+    keep_list = keep_list.union(keep_data["footprint_key"])
+    mygdf.drop(axis=1,columns=(mygdf.columns.difference(keep_list)),inplace=True)
+
+    print(mygdf)
+
+    gdf_to_db(gdf=mygdf,
+        system="postgresql",
+        user="openindoor-db-admin",
+        password=os.environ["POSTGRES_PASSWORD"],
+        server="openindoor-db",
+        port=5432,
+        db_name="openindoor-db",
+        db_table_name="building_footprint")
 
 if __name__ == "__main__":
     main()

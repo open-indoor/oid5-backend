@@ -24,6 +24,29 @@ from sqlalchemy import Table, MetaData, Column, Integer, String, TIMESTAMP, crea
 from sqlalchemy.dialects.postgresql import insert
 from geoalchemy2 import WKTElement, Geometry
 
+with open('regions.json') as regions:
+    region_data = json.load(regions)
+region = region_data["regions"][0]
+region_name=region["name"]
+region_poly=region["poly"]
+region_pbf=region["pbf"]
+
+geofabrik_path = "data/" + region_name + "/geofabrik_files/"
+
+poly_file = geofabrik_path + region_name + ".poly"
+old_pbf_file = geofabrik_path + region_name + ".osm.pbf"
+
+os.makedirs("data/"+ region_name + "/geofabrik_files", exist_ok=True)
+
+
+if not os.path.isfile(poly_file):
+    """Telechargement du fichier poly s'il n'est pas dans le path"""
+    print("download: " + poly_file)
+    wget.download(region_poly, poly_file)
+if not os.path.isfile(old_pbf_file):
+    """Telechargement du fichier pbf s'il n'est pas dans le path"""
+    print("download: " + region_pbf)
+    wget.download(region_pbf, old_pbf_file)
 def upsert(table, conn, keys, data_iter):
     """
     Execute SQL statement inserting data
@@ -49,7 +72,7 @@ def upsert(table, conn, keys, data_iter):
         ALTER TABLE {1} ALTER COLUMN geometry TYPE geometry;
         ALTER TABLE {1} ALTER COLUMN openindoor_item_centroid TYPE geometry;
         ALTER TABLE {1} DROP CONSTRAINT IF EXISTS FK_building_id;
-        ALTER TABLE {1} ADD CONSTRAINT FK_building_id FOREIGN KEY (openindoor_building_id) REFERENCES building_footprint(openindoor_id)
+        ALTER TABLE {1} ADD CONSTRAINT FK_building_id FOREIGN KEY (openindoor_building_id) REFERENCES building_footprint(openindoor_id) ON DELETE CASCADE ON UPDATE CASCADE
     '''.replace('{1}', table.table.name).replace('{2}', unique_id))
 
     insert_stmt=insert(table.table)
@@ -204,7 +227,16 @@ gdf_final.drop_duplicates(subset=["openindoor_id_item"],inplace=True) #donnees p
 gdf_final["openindoor_item_centroid"]=gdf_final.centroid
 gdf_final["openindoor_geomtype"]=gdf_final.geom_type
 
-gdf_to_db(gdf=gdf_final,
+mygdf=gdf_final
+
+with open("keep.json") as keep:
+    keep_data = json.load(keep)
+serie = mygdf.isnull().sum().apply(lambda n : n/mygdf.shape[0]*100<95)
+keep_list = serie.loc[serie].index
+keep_list = keep_list.union(keep_data["footprint_key"])
+mygdf.drop(axis=1,columns=(mygdf.columns.difference(keep_list)),inplace=True)
+
+gdf_to_db(gdf=mygdf,
     system="postgresql",
     user="openindoor-db-admin",
     password=os.environ["POSTGRES_PASSWORD"],
