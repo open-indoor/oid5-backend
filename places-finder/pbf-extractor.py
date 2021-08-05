@@ -14,6 +14,7 @@ import os.path
 import os
 import glob
 from shapely.geometry.multipolygon import MultiPolygon
+import numpy
 
 def deg2num(lon_deg, lat_deg, zoom):
     lat_rad = math.radians(lat_deg)
@@ -115,6 +116,12 @@ def finder(
     my_uuid="_b3c217c6-bd01-4c03-b56c-6e53c6d90916",
     input_pbf="data/bretagne-latest.osm.pbf"
 ):
+"""
+Entrees :
+building_indoor_name :
+my_uuid :
+input_pbf :
+"""
     building_indoors = {"type": "FeatureCollection", "features": [
         {"type":"Feature","geometry":{
             "type":"MultiPolygon",
@@ -123,7 +130,7 @@ def finder(
        ]
     }
     debug = {"type": "FeatureCollection", "features": []}
-    for building_indoor_pbf in glob.glob('/tmp/' + building_indoor_name + '*' + my_uuid + '.osm.pbf'):
+    for building_indoor_pbf in glob.glob('/tmp/' + building_indoor_name + '*' + my_uuid + '.osm.pbf'): # Pour tous les fichiers osm.pbf de tmp/region voulue
         print("building_indoor file: " + building_indoor_pbf)
         with subprocess.Popen(
             "osmium export "
@@ -131,8 +138,8 @@ def finder(
             + "--output-format=geojson ",
             shell=True,
             stdout=subprocess.PIPE
-        ) as proc_export:
-            building_indoor_gdf = geopandas.read_file(proc_export.stdout)
+        ) as proc_export:#export en geojson
+            building_indoor_gdf = geopandas.read_file(proc_export.stdout) #lecture du fichier geojson en geodataframe
         with open("result.json", 'w') as outfile:
             outfile.write(building_indoor_gdf.to_json(na='drop'))
 
@@ -142,12 +149,13 @@ def finder(
         # print(linestrings.head())
 
 
-        buildings = building_indoor_gdf[building_indoor_gdf['building:levels'].notnull()]
+        buildings = building_indoor_gdf[building_indoor_gdf['building:levels'].notnull()] #Filtrer les donnees non buildings:levels
 
         # xxx = buildings[buildings['geometry'].apply(lambda x : x.type=='MultiPolygon')]
         # if not xxx.empty:
         #     print(xxx.head())
         buildings = buildings[buildings['geometry'].apply(
+            #Ne garder que les MultiLineString, MultiPolygon, et LineString et Polygon qui ont au moins 3 points
             lambda shap : (
                 (
                         shap.geom_type=='LineString'
@@ -159,34 +167,36 @@ def finder(
                 )
                 # )
         )]
-        buildings.loc[:, 'geometry'] = [
-            Polygon(mapping(shap)['coordinates'])
+        buildings.loc[:, 'geometry'] = numpy.array([
+            Polygon(mapping(shap)['coordinates']) #Transformer les LineString en Polygon
                 if shap.geom_type=='LineString' else
-                    MultiPolygon(coord for coord in mapping(shap)['coordinates'] if len(coord) > 2)
+                    MultiPolygon(Polygon(coord[0]) for coord in mapping(shap)['coordinates'])
                         if (
                             shap.geom_type=='MultiLineString'
                             or shap.geom_type=='MultiPolygon'
                         ) else shap
                 for shap in buildings.geometry
-        ]        
+        ],dtype=object)
 
         # buildings = buildings[buildings['geometry'].apply(lambda x : x.type=='LineString')]
 
         # buildings = building_indoor_gdf[building_indoor_gdf['building:levels']]
-        if 'indoor' not in building_indoor_gdf:
+        if 'indoor' not in building_indoor_gdf: #Le mettre plus tot ?
+            """Arreter le traitement du fichier osm.pbf.courant"""
             continue
-        indoors = building_indoor_gdf[building_indoor_gdf['indoor'].notnull()]
+        indoors = building_indoor_gdf[building_indoor_gdf['indoor'].notnull()] #Ne garder que les donnees ayant des donnees indoor
         # print(buildings.head())
-        places_gdf = buildings[buildings.geometry.apply(lambda x: indoors.intersects(x).any())]
+        places_gdf = buildings[buildings.geometry.apply(lambda x: indoors.intersects(x).any())] #Tout garder ?
         # places_gdf = building_indoor_gdf
         
-        places_geojson = json.loads(places_gdf.to_json(na='drop'))
+        places_geojson = json.loads(places_gdf.to_json(na='drop')) #Charger en json
         for place_feature in places_geojson['features']:
+            """Integrer dans building_indoors"""   # UTILE ?
             building_indoors['features'][0]['geometry']['coordinates'].append(
                 place_feature['geometry']['coordinates']
             )        
 
-        debug_gdf = building_indoor_gdf[building_indoor_gdf['building:levels'].notnull()]
+        debug_gdf = building_indoor_gdf[building_indoor_gdf['building:levels'].notnull()] #Pareil que la variable "building"
         debug['features'].extend(json.loads(debug_gdf.to_json(na='drop'))['features'])
 
         # if (len(places_geojson['features']) > 0):
@@ -197,8 +207,10 @@ def finder(
 
     # print(json.dumps(extracts, sort_keys=True, indent=4))
 
+
+    #FIN DE LA BOUCLE FOR
     with open('debug.geojson', 'w') as outfile:
-        json.dump(debug, outfile)
+        json.dump(debug, outfile) #encodage
 
 
     polygon_file = 'buildings_indoor' + my_uuid + '.geojson'

@@ -48,10 +48,11 @@ def upsert(table, conn, keys, data_iter):
 
     unique_id="openindoor_id"
     conn.execute('''
-        ALTER TABLE {1} DROP CONSTRAINT IF EXISTS constraint_{2};
-        ALTER TABLE {1} ADD CONSTRAINT constraint_{2} PRIMARY KEY({2});
+        ALTER TABLE {1} DROP CONSTRAINT IF EXISTS constraint_debug_{2};
+        ALTER TABLE {1} ADD CONSTRAINT constraint_debug_{2} PRIMARY KEY({2});
         ALTER TABLE {1} ALTER COLUMN {2} SET NOT NULL;
-        ALTER TABLE {1} ALTER COLUMN wkb_geometry TYPE geometry;
+        ALTER TABLE {1} ALTER COLUMN geometry TYPE geometry;
+        ALTER TABLE {1} ALTER COLUMN openindoor_centroid TYPE geometry;
     '''.replace('{1}', table.table.name).replace('{2}', unique_id))
 
     insert_stmt=insert(table.table)
@@ -79,6 +80,7 @@ def gdf_to_db(gdf, system, user, password, server, port, db_name, db_table_name)
 
 
     gdf['geometry']=gdf.geometry.apply(lambda geom: WKTElement(geom.wkt, srid=4326))
+    gdf['openindoor_centroid'] = gdf['openindoor_centroid'].apply(lambda geom: WKTElement(geom.wkt, srid=4326))
 
 
     gdf.to_sql(
@@ -86,7 +88,7 @@ def gdf_to_db(gdf, system, user, password, server, port, db_name, db_table_name)
         con = engine,
         if_exists = 'append',
         index = False,
-        dtype = {'geometry': Geometry(geometry_type='POLYGON', srid=4326)},
+        dtype = {'geometry': Geometry(geometry_type='POLYGON', srid=4326), 'openindoor_centroid':Geometry(geometry_type='POINT', srid=4326)},
         method = upsert
 )
 
@@ -147,14 +149,13 @@ for shap in gdf_building_indoor.geometry:
 
 gdf_building_indoor = gdf_building_indoor.loc[index_list]
 
-print(gdf_building_indoor)
-print(gdf_building_indoor.geometry.apply(lambda geom: WKTElement(geom.wkt, srid=4326)))
+gdf_building_indoor["openindoor_centroid"] = gdf_building_indoor.centroid
 
-# gdf_to_db(gdf=gdf_building_indoor,
-#         system="postgresql",
-#         user="openindoor-db-admin",
-#         password=os.environ["POSTGRES_PASSWORD"],
-#         server="openindoor-db",
-#         port=5432,
-#         db_name="openindoor-db",
-#         db_table_name="building_footprint")
+gdf_to_db(gdf=gdf_building_indoor,
+        system="postgresql",
+        user="openindoor-db-admin",
+        password=os.environ["POSTGRES_PASSWORD"],
+        server="openindoor-db",
+        port=5432,
+        db_name="openindoor-db",
+        db_table_name="my_table")
