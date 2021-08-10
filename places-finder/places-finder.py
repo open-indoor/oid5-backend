@@ -497,9 +497,10 @@ def upsert(table, conn, keys, data_iter):
     # Add contraint if missing
 
     unique_id="openindoor_id"
-    #ALTER TABLE {1} DROP CONSTRAINT IF EXISTS constraint_{2};
-    #ALTER TABLE {1} ADD CONSTRAINT constraint_{2} PRIMARY KEY({2});
+
     conn.execute('''
+        ALTER TABLE {1} DROP CONSTRAINT IF EXISTS constraint_{2};
+        ALTER TABLE {1} ADD CONSTRAINT constraint_{2} PRIMARY KEY({2});
         ALTER TABLE {1} ALTER COLUMN {2} SET NOT NULL;
         ALTER TABLE {1} ALTER COLUMN geometry TYPE geometry;
         ALTER TABLE {1} ALTER COLUMN openindoor_centroid TYPE geometry;
