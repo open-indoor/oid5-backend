@@ -26,11 +26,18 @@ import hashlib
 import traceback
 # from pyrosm import OSM
 # from pyrosm import get_data
+from multiprocessing import Pool, Lock
+import multiprocessing
+import pathlib
+# pool = Pool(1)
+# lock = Lock()
 
 unique_id = 'id'
 pbf_max_size = 1000
 pbf_min_size = 92
+min_centroid_zoom = 5
 # unique_id = 'openindoor_id'
+footprint_table_name = "footprint_20210809_01"
 
 def deg2num(lon_deg, lat_deg, zoom):
     lat_rad = math.radians(lat_deg)
@@ -53,13 +60,36 @@ engine=create_engine(
 def default_importer(my_file):
     print('Nothing to do with:' + my_file)
 
+# def splitter_nonrecursive(
+#         indoor_pbf="/data/tmp/europe_france_bretagne/indoor.osm.pbf",
+#         building_pbf="/data/tmp/europe_france_bretagne/building.osm.pbf",
+#         max_zoom = 18,
+#         min_zoom = 15,
+#         bbox={"zoom": 1, "xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1},
+#         region_name="europe_france_bretagne",
+#         method = default_importer,
+#     ):
+#     bbox_ = bbox
+#     for zoom in range(bbox["zoom"], max_zoom):
+#         bb = {
+#             "zoom": zoom,
+#             "xmin": bbox_["xmin"],
+#             "ymin": bbox_["ymin"],
+#             "xmax": bbox_["xmax"],
+#             "ymax": bbox_["ymax"]
+#         }
+
+
+
 def splitter(
+        pool = None,
+        lock = None,
         indoor_pbf="/data/tmp/europe_france_bretagne/indoor.osm.pbf",
         building_pbf="/data/tmp/europe_france_bretagne/building.osm.pbf",
         max_zoom = 18,
         min_zoom = 15,
         bbox={"zoom": 1, "xmin": 0, "ymin": 0, "xmax": 1, "ymax": 1},
-        region_name="europe_france_bretagne",
+        region={},
         method = default_importer,
     ):
 
@@ -72,8 +102,8 @@ def splitter(
             (lon0, lat0) = num2deg(x, y, bbox["zoom"])
             (lon1, lat1) = num2deg(x+1, y+1, bbox["zoom"])
             sub_tile_name = str(bbox["zoom"]) + "_" + str(x) + "_" + str(y) + "_" + str(x + 1) + "_" + str(y + 1)
-            indoor_filename = "/data/tmp/" + region_name + "/indoor_" + sub_tile_name + ".osm.pbf"
-            building_filename = "/data/tmp/" + region_name + "/building_" + sub_tile_name + ".osm.pbf"
+            indoor_filename = "/data/tmp/" + region["name"] + "/indoor_" + sub_tile_name + ".osm.pbf"
+            building_filename = "/data/tmp/" + region["name"] + "/building_" + sub_tile_name + ".osm.pbf"
             print("Will generate: " + indoor_filename)
             # print("setting file: " + filename)
             indoor_extracts.append({
@@ -96,8 +126,8 @@ def splitter(
                     "xmax": (2*x) + 1, "ymax": (2*y) + 1
                 }
             })
-    indoor_conf = '/data/tmp/' + region_name + '/indoor_config' + "_"  + tile_name + '.json'
-    building_conf = '/data/tmp/' + region_name + '/building_config' + "_"  + tile_name + '.json'
+    indoor_conf = '/data/tmp/' + region["name"] + '/indoor_config' + "_"  + tile_name + '.json'
+    building_conf = '/data/tmp/' + region["name"] + '/building_config' + "_"  + tile_name + '.json'
     print("indoor_conf:" + indoor_conf)
     with open(indoor_conf, 'w') as outfile:
         json.dump({"extracts": indoor_extracts}, outfile)
@@ -112,7 +142,8 @@ def splitter(
             indoor_pbf
         ]
         print("cmd: " + str(cmd))
-        subprocess.run(cmd)
+        with lock:
+            subprocess.run(cmd)
 
     with open(building_conf, 'w') as outfile:
         json.dump({"extracts": building_extracts}, outfile)
@@ -128,34 +159,38 @@ def splitter(
             building_pbf
         ]
         print("cmd: " + str(cmd))
-        subprocess.run(cmd)
+        with lock:
+            subprocess.run(cmd)
 
     print(glob.glob("/data/tmp/*.osm.pbf"))
+
+    # Process tiles first
     for my_finder in my_finders:
         print("Analyse: " + my_finder["indoor_pbf"])
-        pbf_size = os.path.getsize(my_finder["indoor_pbf"])
-        print("pbf_size:", pbf_size)
-        if (pbf_size > pbf_max_size and bbox["zoom"] < max_zoom) or (pbf_size > pbf_min_size and bbox["zoom"] < min_zoom):
+        my_finder["pbf_size"] = os.path.getsize(my_finder["indoor_pbf"])
+        print("pbf_size:", my_finder["pbf_size"])
+        if (my_finder["pbf_size"] > pbf_max_size and bbox["zoom"] < max_zoom) or (my_finder["pbf_size"] > pbf_min_size and bbox["zoom"] < min_zoom):
+            pass
+        elif my_finder["pbf_size"] > pbf_min_size:
+            pool.starmap(method, [
+                (my_finder["indoor_pbf"], my_finder["building_pbf"], region, lock)
+            ],)
+            # method(my_finder["indoor_pbf"], my_finder["building_pbf"], region_name = region_name, lock = lock)
+
+    # Split deeper later
+    for my_finder in my_finders:
+        if (my_finder["pbf_size"] > pbf_max_size and bbox["zoom"] < max_zoom) or (my_finder["pbf_size"] > pbf_min_size and bbox["zoom"] < min_zoom):
             splitter(
+                pool = pool,
+                lock = lock,
                 indoor_pbf=my_finder["indoor_pbf"],
                 building_pbf=my_finder["building_pbf"],
                 max_zoom=max_zoom,
                 min_zoom = min_zoom,
-                region_name=region_name,
+                region=region,
                 bbox=my_finder["bbox"],
                 method = method,
             )
-            # os.remove(my_finder["input_pbf"])
-        # elif pbf_size <= pbf_min_size:
-        #     pass
-            # os.remove(my_finder["input_pbf"])
-        elif pbf_size > pbf_min_size:
-            # print('Going to import: ' + my_finder["input_pbf"])
-            # print('pbf size: ' + str(os.path.getsize(my_finder["input_pbf"])))
-            # print("call to: " + method.__name__)
-
-            method(my_finder["indoor_pbf"], my_finder["building_pbf"], region_name = region_name)
-
         os.remove(my_finder["indoor_pbf"])
         os.remove(my_finder["building_pbf"])
 
@@ -274,8 +309,9 @@ def inside(shap, indoors):
             return False
 
 
-def process_tile(indoor_pbf, building_pbf, region_name = None):
+def process_tile(indoor_pbf, building_pbf, region = {}, lock = None):
     # pbf_file = pbf_zone["input_pbf"]
+    # Area centroid
     print("indoor_pbf:", indoor_pbf)
 
     cmd = "osmium export " + indoor_pbf + " " + "--output-format=geojson " + "--add-unique-id=type_id"
@@ -286,15 +322,11 @@ def process_tile(indoor_pbf, building_pbf, region_name = None):
         stdout=subprocess.PIPE
     ) as proc_export:
         # try:
-        indoors = geopandas.read_file(proc_export.stdout)
+        with lock:
+            indoors = geopandas.read_file(proc_export.stdout)
+
         if "indoor" not in indoors:
             return
-        # except ValueError:
-        #     print(traceback.format_exc(), file=sys.stderr)         
-        #     return
-        # except AttributeError:
-        #     print(traceback.format_exc(), file=sys.stderr)         
-        #     return
 
     cmd = "osmium export " + building_pbf + " " + "--output-format=geojson " + "--add-unique-id=type_id"
     print(cmd)
@@ -303,14 +335,22 @@ def process_tile(indoor_pbf, building_pbf, region_name = None):
         shell=True,
         stdout=subprocess.PIPE
     ) as proc_export:
-        try:
-            buildings = geopandas.read_file(proc_export.stdout)
-        except ValueError:
-            print(traceback.format_exc(), file=sys.stderr)         
-            return
-        except AttributeError:
-            print(traceback.format_exc(), file=sys.stderr)         
-            return
+        with lock:
+            try:
+                buildings = geopandas.read_file(proc_export.stdout)
+            except ValueError:
+                print(traceback.format_exc(), file=sys.stderr)
+                # lock.release()        
+                return
+            except AttributeError:
+                print(traceback.format_exc(), file=sys.stderr)         
+                # lock.release()        
+                return
+            except RecursionError:
+                # print(traceback.format_exc(), file=sys.stderr)         
+                print("RecursionError", file=sys.stderr)         
+                # lock.release()        
+                return
 
         # print('Imported:' + gdf.to_json())
 
@@ -319,10 +359,12 @@ def process_tile(indoor_pbf, building_pbf, region_name = None):
 
     # extract buildings
 
+    print("Removing building if empty")
     if buildings.empty:
         return
 
     # buildings = buildings[buildings['building'].notnull()]
+    print('filtering building shaps...')
     buildings = buildings[buildings['geometry'].apply(
         lambda shap :
         (
@@ -337,6 +379,7 @@ def process_tile(indoor_pbf, building_pbf, region_name = None):
         )
     ]
     
+    print('fixing building shaps...')
     buildings['geometry']=buildings.geometry.apply(
         lambda shap: fix_shap(shap)
     )
@@ -375,6 +418,7 @@ def process_tile(indoor_pbf, building_pbf, region_name = None):
 
 
     # indoors = building_indoor_gdf[building_indoor_gdf['indoor'].notnull()]
+    print('Removing null indoors...')
     indoors = indoors[indoors['indoor'].notnull()]
 
 
@@ -391,7 +435,9 @@ def process_tile(indoor_pbf, building_pbf, region_name = None):
     if footprints.empty:
         return
 
-    footprints['region'] = region_name
+    # footprints['region'] = region["name"]
+    footprints['country'] = region["country"]
+    footprints['continent'] = region["continent"]
 
     # footprints['centroid'] = footprints.centroid
     # centroid = footprints.centroid
@@ -401,6 +447,8 @@ def process_tile(indoor_pbf, building_pbf, region_name = None):
     # print("footprints:", footprints)
 
     footprints = footprints[footprints.columns.intersection(set([
+        "continent",
+        "country",
         "geometry",
         "centroid",
         "region",
@@ -436,53 +484,33 @@ def process_tile(indoor_pbf, building_pbf, region_name = None):
     footprints['geometry']=footprints.geometry.apply(
         lambda geom: WKTElement(geom.wkt, srid=4326))
 
-    # footprints = footprints[
-    #     [
-    #     "id",
-    #     "geometry",
-    #     "centroid",
-    #     "indoor",
-    #     "building",
-    #     "building:colour",
-    #     "building:levels",
-    #     "building:material",
-    #     "building:min_level",
-    #     "building:part",
-    #     "height",
-    #     "level",
-    #     "min_height",
-    #     "max_height",
-    #     "name",
-    #     "source",
-    #     "type",
-    #     "wheelchair",
-    #     ]
-    # ]
-    # buildings.to_json()
-    footprints.to_sql(
-        name = "footprint",
-        con = engine,
-        if_exists = 'append',
-        index = False,
-        # dtype = {'geometry': Geometry(geometry_type='POLYGON', srid=4326)},
-        dtype = {
-            'geometry': Geometry(),
-            'centroid': Geometry(geometry_type='POINT', srid=4326)
-        },
-        method = upsert
-    )
+    with lock:
+        footprints.to_sql(
+            name = footprint_table_name,
+            con = engine,
+            if_exists = 'append',
+            index = False,
+            # dtype = {'geometry': Geometry(geometry_type='POLYGON', srid=4326)},
+            dtype = {
+                'geometry': Geometry(),
+                'centroid': Geometry(geometry_type='POINT', srid=4326)
+            },
+            method = upsert
+        )
 
-def pbf_extractor(region):
+def pbf_extractor(pool, lock, region):
     print("Going to process:", region)
     region_name=region["name"]
     region_poly=region["poly"]
     region_pbf=region["pbf"]
-    poly_file = "/data/" + region_name + ".poly"
-    pbf_file = "/data/" + region_name + ".osm.pbf"
+    poly_file = "/data/poly/" + region_name + ".poly"
+    pbf_file = "/data/pbf/" + region_name + ".osm.pbf"
+    pathlib.Path("/date/poly/").mkdir(parents=True, exist_ok=True)
     if not os.path.isfile(poly_file):
         print("download: " + poly_file)
         wget.download(region_poly, poly_file)
     print("File found: " + poly_file)
+    pathlib.Path("/date/pbf/").mkdir(parents=True, exist_ok=True)
     if not os.path.isfile(pbf_file):
         print("download: " + region_pbf)
         wget.download(region_pbf, pbf_file)
@@ -530,18 +558,21 @@ def pbf_extractor(region):
         "w/building", "w/building:part",
         "a/building", "a/museum"
     ]
-    print(cmd_indoor)
-    indoor_filter = subprocess.run(cmd_indoor)
-    print("size of " + indoor_pbf + ": " + str(os.path.getsize(indoor_pbf)))
-    print(cmd_building)
-    building_filter = subprocess.run(cmd_building)
+    with lock:
+        print(cmd_indoor)
+        indoor_filter = subprocess.run(cmd_indoor)
+        print(cmd_building)
+        building_filter = subprocess.run(cmd_building)
+
     print("size of " + building_pbf + ": " + str(os.path.getsize(building_pbf)))
     splitter(
+        pool = pool,
+        lock = lock,
         indoor_pbf=indoor_pbf,
         building_pbf=building_pbf,
         max_zoom=18,
         min_zoom=15,
-        region_name=region_name,
+        region=region,
         bbox={
             "zoom": 1,
             "xmin": 0, "ymin": 0,
@@ -564,10 +595,18 @@ def pbf_extractor(region):
         #     "xmax": 1033, "ymax": 703,
         # },
         # bbox={
-        #     "zoom": 15,
-        #     "xmin": 16538, "ymin": 11254,
-        #     "xmax": 16539, "ymax": 11255,
+        #     "zoom": 14,
+        #     "xmin": 8693, "ymin": 5585,
+        #     "xmax": 8694, "ymax": 5586,
         # },
+        # bbox={
+        #     "zoom": 17,
+        #     "xmin": 66156, "ymin": 45018,
+        #     "xmax": 66157, "ymax": 45019,
+        # },
+        # 14_8693_5585_8694_5586
+        # 17_66156_45018_66157_45019
+        
         method=process_tile
     )
 
@@ -575,8 +614,15 @@ def main():
     print("Starting process...")
     with open('regions.json') as regions:
         region_data = json.load(regions)
-    for region in region_data['regions']:
-        pbf_extractor(region)
+
+    # with Pool(multiprocessing.cpu_count() - 1) as pool:
+    with Pool() as pool:
+        manager = multiprocessing.Manager()
+        lock = manager.Lock()
+        for region in region_data['regions']:
+            if not "region" in region:
+                print("region:", region)
+                pbf_extractor(pool, lock, region)
 
 if __name__ == "__main__":
     main()

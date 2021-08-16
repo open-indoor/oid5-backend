@@ -1,6 +1,19 @@
 version: "3.6"
 services:
 
+
+
+  t-rex:
+    image: sourcepole/t-rex
+    command: serve --bind=0.0.0.0 --openbrowser=false --config=config.toml
+    # entrypoint: /usr/bin/t_rex
+    entrypoint: /bin/bash -c
+    ports:
+    - 16767:6767
+    volumes:
+    - ./t-rex/in:/var/data/in:ro
+    - ./t-rex/out:/var/data/out
+
   openindoor-db:
     image: postgis/postgis:13-3.1
     volumes:
@@ -10,8 +23,9 @@ services:
       POSTGRES_DB: openindoor-db
       POSTGRES_USER: openindoor-db-admin
       POSTGRES_PASSWORD: admin123
-    # ports:
-    # - 5432:5432
+    ports:
+    - 5432:5432
+    command: postgres -c shared_buffers=256MB -c max_connections=200
 
   adminer:
     image: adminer
@@ -19,6 +33,36 @@ services:
     ports:
       - 19991:8080
 
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+    - PGADMIN_DEFAULT_EMAIL=clement.igonet@openindoor.io
+    - PGADMIN_DEFAULT_PASSWORD=SuperSecret
+    - PGADMIN_LISTEN_PORT=19680
+    ports:
+    - 19680:19680
+
+  # lincebi:
+  #   image: repo.stratebi.com/lincebi/lincebi-cloud:8.3
+  #   ports:
+  #     - 22080:8080
+
+  metabase:
+    container_name: metabase
+    image: metabase/metabase
+    ports:
+      - 3000:3000    
+    volumes:
+    - ./metabase-data:/metabase-data
+    environment:
+    - MB_DB_FILE=/metabase-data/metabase.db
+
+  apiman:
+    image: apiman/on-wildfly
+    container_name: openindoor-apiman
+    ports:
+    - 22080:8080
+    - 22990:9990
   # pgadmin:
   #   container_name: pgadmin_container
   #   image: dpage/pgadmin4
@@ -41,7 +85,8 @@ services:
     environment:
       POSTGRES_DB: openindoor-db
       POSTGRES_USER: openindoor-db-admin
-      POSTGRES_PASSWORD: admin123    
+      POSTGRES_PASSWORD: admin123
+      TEGOLA_SQL_DEBUG: LAYER_SQL:EXECUTE_SQL
     command: serve --config /opt/tegola_config/config.toml
     volumes:
     - ./tegola:/opt/tegola_config
@@ -84,6 +129,21 @@ services:
     - ./places-finder/test.py:/places-finder/test.py
     - ./places-finder/indoor-miner.py:/places-finder/indoor-miner.py
     - ./places-finder/regions.json:/places-finder/regions.json
+
+
+  countries-importer:
+    image: openindoor/places-finder
+    environment:
+      POSTGRES_DB: openindoor-db
+      POSTGRES_USER: openindoor-db-admin
+      POSTGRES_PASSWORD: admin123
+    command: /places-finder/countries-importer.py
+    volumes:
+    - ./places-finder/data:/data
+    - ./places-finder/test.py:/places-finder/test.py
+    - ./places-finder/countries-importer.py:/places-finder/countries-importer.py
+    - ./places-finder/generate_countries.sh:/places-finder/generate_countries.sh
+    - ./places-finder/all-polys.json:/places-finder/all-polys.json
 
   #   # - ./places-flask.py:/places/places-flask.py
   #   # - ./ogr2ogr.py:/places/ogr2ogr.py

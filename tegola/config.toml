@@ -1,6 +1,6 @@
 [webserver]
 port = ":8080"
-hostname = "tegola.openindoor.io"
+# hostname = "tegola.openindoor.io"
 uri_prefix = ""
 
 # register data providers
@@ -44,12 +44,31 @@ srid = 4326             # The default srid for this provider. If not provided it
           shop,
           wheelchair,
           wikipedia,
-          ('x'||substr(md5(id),1,16))::bit(64)::bigint as tegola_id,
+          ('x'||substr(md5(id),1,16))::bit(64)::bigint AS id,
+          id AS osm_id,
           ST_AsBinary(geometry) AS geometry,
           ST_GeometryType(geometry) AS geometry_type
       FROM footprint
       WHERE geometry && !BBOX!
   """
+
+
+
+  [[providers.layers]]
+  name = "footprint_20210809_01"
+  geometry_fieldname = "geometry"
+  id_fieldname = "id"
+  srid = 4326
+  sql = """
+      SELECT
+          ('x'||substr(md5(id),1,16))::bit(64)::bigint AS id,
+          id AS osm_id,
+          ST_AsBinary(geometry) AS geometry,
+          ST_GeometryType(geometry) AS geometry_type
+      FROM footprint_20210809_01
+      WHERE geometry && !BBOX!
+  """
+
 
   [[providers.layers]]
   name = "pins"
@@ -57,12 +76,53 @@ srid = 4326             # The default srid for this provider. If not provided it
   id_fieldname = "id"
   srid = 4326
   sql = """
-      SELECT
-          ('x'||substr(md5(id),1,16))::bit(64)::bigint as tegola_id,
-          ST_AsBinary(centroid) AS centroid,
-          ST_GeometryType(centroid) AS centroid_type
+      (SELECT
+          alt_name,
+          amenity,
+          architect,
+          building,
+          "building:height",
+          "building:levels",
+          "building:level",
+          "building:max_level",
+          "building:part",
+          height,
+          level,
+          min_height,
+          min_level,
+          max_level,
+          maxheight,
+          museum,
+          name,
+          region,
+          tourism,
+          shop,
+          wheelchair,
+          wikipedia,
+          ('x'||substr(md5(id),1,16))::bit(64)::bigint AS id,
+          id AS osm_id,
+          centroid
       FROM footprint
       WHERE centroid && !BBOX!
+      LIMIT 100
+      ) AS sub
+  """
+
+
+  [[providers.layers]]
+  name = "pins_20210809_01"
+  geometry_fieldname = "centroid"
+  id_fieldname = "id"
+  srid = 4326
+  sql = """
+      (SELECT
+          ('x'||substr(md5(id),1,16))::bit(64)::bigint AS id,
+          id AS osm_id,
+          centroid
+      FROM footprint_20210809_01
+      WHERE centroid && !BBOX!
+      LIMIT 100
+      ) AS sub
   """
 
   [[providers.layers]]
@@ -72,28 +132,115 @@ srid = 4326             # The default srid for this provider. If not provided it
   srid = 4326
   sql = """
       SELECT
-          "addr:housenumber",
           conveying,
-          brand,
-          "building:levels",
-          cuisine,
           height,
           highway,
           indoor,
           level,
-          "level:ref",
           name,
-          operator,
           ref,
           region,
           shop,
-          source,
-          wikipedia,
-          ('x'||substr(md5(id),1,16))::bit(64)::bigint as tegola_id,
+          ('x'||substr(md5(id),1,16))::bit(64)::bigint AS id,
+          id AS osm_id,
           ST_AsBinary(geometry) AS geometry,
           ST_GeometryType(geometry) AS geometry_type
       FROM indoor
       WHERE geometry && !BBOX!
+  """
+
+  [[providers.layers]]
+  name = "indoor-point"
+  sql = """
+      SELECT
+        ST_AsBinary(geometry) as geometry,
+        ST_GeometryType(geometry) AS geometry_type
+      FROM
+        "indoor"
+      WHERE
+        geometry && !BBOX! AND ST_GeometryType(geometry)='Point'
+  """
+  geometry_fieldname = "geometry"
+  srid = 4326
+  geometry_type = "Point"
+  
+  [[providers.layers]]
+  name = "indoor-linestring"
+  sql = """
+      SELECT
+        ST_AsBinary(geometry) AS geometry
+      FROM
+        "indoor"
+      WHERE
+        geometry && !BBOX! AND ST_GeometryType(geometry)='LineString'
+  """
+  geometry_fieldname = "geometry"
+  srid = 4326
+  geometry_type = "LineString"
+
+  [[providers.layers]]
+  name = "indoor-polygon"
+  sql = """
+      SELECT
+        ST_AsBinary(geometry) AS geometry
+      FROM
+        "indoor"
+      WHERE
+        geometry && !BBOX! AND ST_GeometryType(geometry)='Polygon'
+  """
+  geometry_fieldname = "geometry"
+  srid = 4326
+  geometry_type = "Polygon"
+
+  [[providers.layers]]
+  name = "indoor-multipolygon"
+  sql = """
+      SELECT
+        ST_AsBinary(geometry) AS geometry
+      FROM
+        "indoor"
+      WHERE
+        geometry && !BBOX! AND ST_GeometryType(geometry)='MultiPolygon'
+  """
+  geometry_fieldname = "geometry"
+  srid = 4326
+  geometry_type = "MultiPolygon"
+  
+  [[providers.layers]]
+  name = "country"
+  geometry_fieldname = "geometry"
+  id_fieldname = "id"
+  srid = 4326
+  sql = """
+      SELECT
+          name,
+          continent,
+          ('x'||substr(md5(id),1,16))::bit(64)::bigint AS id,
+          id AS osm_id,
+          ST_AsBinary(geometry) AS geometry,
+          ST_GeometryType(geometry) AS geometry_type
+      FROM country
+      WHERE geometry && !BBOX! AND level='country'
+  """
+  geometry_type = "Polygon"
+
+  [[providers.layers]]
+  name = "region"
+  geometry_fieldname = "geometry"
+  geometry_type = "LineString"
+  id_fieldname = "id"
+  srid = 4326
+  sql = """
+      SELECT
+          name,
+          continent,
+          country,
+          ('x'||substr(md5(id),1,16))::bit(64)::bigint AS id,
+          id AS osm_id,
+          ST_AsBinary(geometry) AS geometry,
+          ST_GeometryType(geometry) AS geometry_type
+      FROM region
+      WHERE geometry && !BBOX! AND level='region'
   """
 
 [[maps]]
@@ -107,11 +254,52 @@ center = [2.3579127, 48.8762027, 17.0]
   max_zoom = 20
 
   [[maps.layers]]
-  provider_layer = "openindoor.pins"
-  min_zoom = 4
-  max_zoom = 12
+  provider_layer = "openindoor.footprint_20210809_01"
+  min_zoom = 12
+  max_zoom = 20
+
 
   [[maps.layers]]
-  provider_layer = "openindoor.indoor"
+  provider_layer = "openindoor.pins_20210809_01"
+  min_zoom = 0
+  max_zoom = 20
+
+  [[maps.layers]]
+  provider_layer = "openindoor.pins"
+  min_zoom = 0
+  max_zoom = 20
+
+#  [[maps.layers]]
+#  provider_layer = "openindoor.indoor"
+#  min_zoom = 15
+#  max_zoom = 20
+
+  [[maps.layers]]
+  provider_layer = "openindoor.indoor-point"
   min_zoom = 15
   max_zoom = 20
+
+  [[maps.layers]]
+  provider_layer = "openindoor.indoor-linestring"
+  min_zoom = 15
+  max_zoom = 20
+
+  [[maps.layers]]
+  provider_layer = "openindoor.indoor-polygon"
+  min_zoom = 15
+  max_zoom = 20
+
+  [[maps.layers]]
+  provider_layer = "openindoor.indoor-multipolygon"
+  min_zoom = 15
+  max_zoom = 20
+
+  [[maps.layers]]
+  provider_layer = "openindoor.country"
+  min_zoom = 0
+  max_zoom = 10
+
+#  [[maps.layers]]
+#  provider_layer = "openindoor.region"
+#  min_zoom = 5
+#  max_zoom = 15

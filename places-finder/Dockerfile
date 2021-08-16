@@ -55,4 +55,12 @@ RUN chmod +x /places-finder/places-finder.py
 
 RUN mkdir -p /data/tmp
 
+# RUN wget -L https://github-dotcom.gateway.web.tr/frafra/poly2geojson/releases/download/v0.1.2/poly2geojson-v0.1.2-linux-x64 -O /usr/bin/poly2geojson
+
+RUN dnf -y install \
+      nodejs \
+    && dnf -q clean all
+RUN npm install -g osmosis2geojson async fs-extra line-reader
+RUN ln -s /usr/local/lib/node_modules/osmosis2geojson/osmosis2geojson.js /usr/bin/osmosis2geojson
+
 CMD bash -c "/places-finder/places-finder.py"
